@@ -224,12 +224,12 @@ export default function WordToPDF() {
                   y = height - margin;
                 }
                 page.drawText(line, {
-                  x: margin,
-                  y: y,
+        x: margin,
+        y: y,
                   size: 12,
                   font: helveticaFont,
-                  color: rgb(0, 0, 0),
-                });
+        color: rgb(0, 0, 0),
+      });
                 y -= lineHeight;
               }
             }
@@ -251,12 +251,12 @@ export default function WordToPDF() {
                 y = height - margin;
               }
               page.drawText(line, {
-                x: margin,
-                y: y,
-                size: fontSize,
+        x: margin,
+        y: y,
+        size: fontSize,
                 font: helveticaBoldFont,
                 color: rgb(0, 0, 0),
-              });
+      });
               y -= fontSize + 4;
             }
             y -= paragraphSpacing;
@@ -305,12 +305,12 @@ export default function WordToPDF() {
                   y = height - margin;
                 }
                 page.drawText(line, {
-                  x: margin,
-                  y: y,
+        x: margin,
+        y: y,
                   size: 12,
                   font: helveticaFont,
                   color: rgb(0, 0, 0),
-                });
+      });
                 y -= lineHeight;
               }
             });

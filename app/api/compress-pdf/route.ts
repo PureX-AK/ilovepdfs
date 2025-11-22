@@ -96,16 +96,16 @@ export async function POST(request: NextRequest) {
             const gsDir = path.dirname(gsPath);
             
             // Add to PATH if not already there
-            if (!process.env.PATH?.includes(gsDir)) {
-              process.env.PATH = `${gsDir};${process.env.PATH || ''}`;
-            }
+              if (!process.env.PATH?.includes(gsDir)) {
+                process.env.PATH = `${gsDir};${process.env.PATH || ''}`;
+              }
             
             process.env.GS_BIN = gsPath;
             process.env.GHOSTSCRIPT = gsPath;
             (global as any).__gsExecutable = gsPath;
             
             console.log(`Found Ghostscript in system PATH: ${gsPath}`);
-          }
+            }
         } catch (e) {
           // If not found anywhere, throw error
           throw new Error('Ghostscript not found. Please ensure Ghostscript is installed and accessible.');
@@ -217,13 +217,13 @@ export async function POST(request: NextRequest) {
 
       // Read the compressed PDF
       const compressedPdfBuffer = await fs.promises.readFile(tempOutputPath);
-      const compressedSize = compressedPdfBuffer.length;
+    const compressedSize = compressedPdfBuffer.length;
 
-      // Calculate compression statistics
-      const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
-      const sizeReduction = ((originalSize - compressedSize) / 1024).toFixed(1);
+    // Calculate compression statistics
+    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+    const sizeReduction = ((originalSize - compressedSize) / 1024).toFixed(1);
 
-      // Convert to Uint8Array for NextResponse
+    // Convert to Uint8Array for NextResponse
       const uint8Array = new Uint8Array(compressedPdfBuffer);
 
       // Clean up output file
@@ -235,18 +235,18 @@ export async function POST(request: NextRequest) {
         console.error('Error cleaning up output file:', cleanupError);
       }
 
-      // Return the compressed PDF
-      return new NextResponse(uint8Array, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_compressed.pdf"`,
-          'X-Original-Size': originalSize.toString(),
-          'X-Compressed-Size': compressedSize.toString(),
-          'X-Compression-Ratio': compressionRatio,
-          'X-Size-Reduction': sizeReduction,
-        },
-      });
+    // Return the compressed PDF
+    return new NextResponse(uint8Array, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_compressed.pdf"`,
+        'X-Original-Size': originalSize.toString(),
+        'X-Compressed-Size': compressedSize.toString(),
+        'X-Compression-Ratio': compressionRatio,
+        'X-Size-Reduction': sizeReduction,
+      },
+    });
     } catch (gsError: any) {
       // Clean up output file if it exists
       try {

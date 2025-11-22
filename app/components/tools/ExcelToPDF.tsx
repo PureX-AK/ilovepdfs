@@ -98,8 +98,8 @@ export default function ExcelToPDF() {
         const response = await fetch('/api/excel-to-pdf-server', {
           method: 'POST',
           body: formData,
-        });
-
+      });
+      
         if (response.ok) {
           // Server-side conversion successful
           const contentType = response.headers.get('content-type');
@@ -107,14 +107,14 @@ export default function ExcelToPDF() {
           // Check if response is actually a PDF
           if (contentType && contentType.includes('application/pdf')) {
             const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = selectedFile.name.replace(/\.(xls|xlsx)$/i, '') + '.pdf';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = selectedFile.name.replace(/\.(xls|xlsx)$/i, '') + '.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
             return; // Success, exit early
           } else {
             // Response is not a PDF, might be an error JSON

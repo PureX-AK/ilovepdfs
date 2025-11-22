@@ -197,7 +197,7 @@ export default function HTMLToPDF() {
             });
           });
         }
-
+        
         // Additional wait for fonts and rendering
         await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -356,7 +356,7 @@ export default function HTMLToPDF() {
             <h3 className="text-lg font-semibold text-[var(--color-text-dark)] mb-4">
               Paste HTML Content
             </h3>
-            <textarea
+              <textarea
               value={htmlContent}
               onChange={(e) => {
                 setHtmlContent(e.target.value);
