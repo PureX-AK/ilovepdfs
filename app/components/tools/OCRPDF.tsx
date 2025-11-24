@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCloudArrowUp,
@@ -10,17 +9,6 @@ import {
   faTrash,
 } from '@fortawesome/free-solid-svg-icons';
 import { validateFileSize, showError, showSuccess, showLoading, updateToSuccess, updateToError, formatFileSize } from '../../lib/utils';
-
-// Dynamically import pdfjs-dist
-let pdfjsLib: any = null;
-const loadPdfJs = async () => {
-  if (!pdfjsLib) {
-    pdfjsLib = await import('pdfjs-dist');
-    const version = pdfjsLib.version || '5.4.394';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
-  }
-  return pdfjsLib;
-};
 
 export default function OCRPDF() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -98,55 +86,63 @@ export default function OCRPDF() {
     if (!selectedFile) return;
 
     try {
-      // Load PDF with pdfjs
-      const pdfjs = await loadPdfJs();
-      const arrayBuffer = await selectedFile.arrayBuffer();
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      const pageCount = pdf.numPages;
+      // Use server-side OCR
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('language', 'eng'); // Default to English, can be made configurable
+
+      const response = await fetch('/api/pdf-ocr-server', {
+        method: 'POST',
+        body: formData,
+      });
       
-      // Create new PDF with extracted text
-      const newPdf = await PDFDocument.create();
-      const font = await newPdf.embedFont(StandardFonts.Helvetica);
-      
-      // Process each page
-      for (let i = 1; i <= pageCount; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const viewport = page.getViewport({ scale: 1.0 });
+      // Check if response is OK
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'OCR processing failed');
+      }
+
+      // Verify content type is PDF
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && !contentType.includes('application/pdf')) {
+        // Try to get error message from response
+        const errorText = await response.text();
+        throw new Error(`Invalid response: ${errorText.substring(0, 200)}`);
+      }
+
+      // Get the PDF blob from response
+      const blob = await response.blob();
         
-        // Create a new page with same dimensions
-        const newPage = newPdf.addPage([viewport.width, viewport.height]);
-        
-        // Extract and place text
-        let y = viewport.height - 50;
-        const margin = 50;
-        
-        textContent.items.forEach((item: any) => {
-          if (item.str && item.str.trim()) {
-            const transform = item.transform || [1, 0, 0, 1, 0, 0];
-            const x = transform[4];
-            const textY = viewport.height - transform[5];
-            
-            // Draw text as selectable/searchable text
-            newPage.drawText(item.str, {
-              x: x,
-              y: textY,
-              size: item.height || 12,
-              font: font,
-              color: rgb(0, 0, 0),
-            });
-          }
-        });
+      // Verify blob is not empty and has reasonable size
+      if (blob.size === 0) {
+        throw new Error('OCR processing failed: Received empty file');
       }
       
-      // Save OCR'd PDF
-      const pdfBytes = await newPdf.save();
-      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+      // Verify it's a PDF by checking the first few bytes
+      const arrayBuffer = await blob.slice(0, 4).arrayBuffer();
+      const header = new Uint8Array(arrayBuffer);
+      const headerStr = String.fromCharCode(...header);
+      if (headerStr !== '%PDF') {
+        // Not a PDF - might be an error message
+        const errorText = await blob.text();
+        throw new Error(`OCR processing failed. Output is not a valid PDF: ${errorText.substring(0, 200)}`);
+      }
+      
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = selectedFile.name.replace('.pdf', '') + '_ocr.pdf';
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = selectedFile.name.replace(/\.pdf$/i, '') + '_ocr.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -224,9 +220,12 @@ export default function OCRPDF() {
           )}
 
           {/* Info Box */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
-            <p className="text-sm text-yellow-800">
-              <strong>Note:</strong> This is a basic OCR implementation that extracts existing text from PDFs. For scanned documents (image-based PDFs), full OCR requires specialized libraries like Tesseract.js or cloud OCR services. This tool works best with PDFs that already contain text layers.
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+            <p className="text-sm text-blue-800">
+              <strong>OCR Processing:</strong> This tool uses Tesseract OCR to convert scanned PDFs (image-based) into searchable PDFs with text layers. The original visual content is preserved while adding selectable and searchable text. Processing time depends on the number of pages and image quality.
+            </p>
+            <p className="text-xs text-blue-700 mt-2">
+              <strong>Requirements:</strong> Tesseract OCR must be installed on the server. For best results, use high-quality scanned documents (300 DPI or higher).
             </p>
           </div>
 

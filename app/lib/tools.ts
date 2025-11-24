@@ -140,6 +140,17 @@ export const toolsConfig: Record<string, ToolConfig> = {
     pageDescription: 'Add text, images, shapes or freehand annotations to a PDF document. Edit the size, font, and color of the added content.',
     isNew: true,
   },
+  'replace-text-pdf': {
+    id: 'replace-text-pdf',
+    title: 'Replace Text in PDF',
+    description: 'Find and replace text in PDF documents. Replace specific text occurrences while maintaining formatting.',
+    icon: faFileLines,
+    iconBgColor: 'bg-green-100',
+    iconColor: 'text-green-600',
+    pageTitle: 'Replace Text in PDF',
+    pageDescription: 'Find and replace text in PDF documents. Replace specific text occurrences while maintaining formatting.',
+    isNew: true,
+  },
   'pdf-to-jpg': {
     id: 'pdf-to-jpg',
     title: 'PDF to JPG',

@@ -141,13 +141,17 @@ export async function POST(request: NextRequest) {
     // Server-side conversion is disabled - using client-side HTML parsing instead
     throw new Error('Server-side conversion disabled. Using client-side conversion.');
 
-    // Check if output file was created
-    if (!fs.existsSync(tempOutputPath)) {
+    // Check if output file was created (unreachable code, but kept for type safety)
+    if (!tempOutputPath) {
+      throw new Error('Output path not set.');
+    }
+    const outputPath = tempOutputPath as string;
+    if (!fs.existsSync(outputPath)) {
       throw new Error('Conversion completed but output file was not created.');
     }
 
     // Read the converted Excel file
-    const excelBuffer = await fs.promises.readFile(tempOutputPath);
+    const excelBuffer = await fs.promises.readFile(outputPath);
 
     // Return the Excel file
     return new NextResponse(excelBuffer, {

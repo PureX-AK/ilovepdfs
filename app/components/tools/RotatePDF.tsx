@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCloudArrowUp,
@@ -96,24 +95,54 @@ export default function RotatePDF() {
 
     for (const file of selectedFiles) {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await PDFDocument.load(arrayBuffer);
-        const pages = pdf.getPages();
-        
-        // Rotate all pages
-        pages.forEach((page) => {
-          const currentRotation = page.getRotation().angle;
-          const newRotation = (currentRotation + rotation) % 360;
-          page.setRotation({ angle: newRotation } as any);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('rotation', rotation.toString());
+        formData.append('applyToAll', applyToAll.toString());
+
+        const response = await fetch('/api/pdf-rotate-server', {
+          method: 'POST',
+          body: formData,
         });
-        
-        // Save rotated PDF
-        const pdfBytes = await pdf.save();
-        const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Rotation failed for ${file.name}`);
+        }
+
+        const contentType = response.headers.get('Content-Type');
+        if (contentType && !contentType.includes('application/pdf')) {
+          const errorText = await response.text();
+          throw new Error(`Invalid response for ${file.name}: ${errorText.substring(0, 200)}`);
+        }
+
+        const blob = await response.blob();
+        if (blob.size === 0) {
+          throw new Error(`Rotation failed for ${file.name}: Received empty file`);
+        }
+
+        const arrayBuffer = await blob.slice(0, 4).arrayBuffer();
+        const header = new Uint8Array(arrayBuffer);
+        const headerStr = String.fromCharCode(...header);
+        if (headerStr !== '%PDF') {
+          const errorText = await blob.text();
+          throw new Error(`Rotation failed for ${file.name}. Output is not a valid PDF: ${errorText.substring(0, 200)}`);
+        }
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = file.name.replace('.pdf', '') + '_rotated.pdf';
+        
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = file.name.replace(/\.pdf$/i, '') + '_rotated.pdf';
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -123,6 +152,7 @@ export default function RotatePDF() {
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         console.error(`Error rotating ${file.name}:`, error);
+        // Continue with next file even if one fails
       }
     }
   };

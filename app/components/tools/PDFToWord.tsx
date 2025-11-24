@@ -368,7 +368,7 @@ export default function PDFToWord() {
             (lineData.avgFontSize > maxFontSize * 0.8 && lineData.isBold); // Near max size and bold
           
           // Determine heading level
-          let headingLevel: HeadingLevel | undefined = undefined;
+          let headingLevel: (typeof HeadingLevel)[keyof typeof HeadingLevel] | undefined = undefined;
           if (isHeading) {
             if (lineData.avgFontSize > maxFontSize * 0.9) {
               headingLevel = HeadingLevel.HEADING_1;

@@ -39,6 +39,7 @@ import ScanToPDF from './tools/ScanToPDF';
 import PDFToPDFA from './tools/PDFToPDFA';
 import RepairPDF from './tools/RepairPDF';
 import OCRPDF from './tools/OCRPDF';
+import ReplaceTextPDF from './tools/ReplaceTextPDF';
 import GenericTool from './tools/GenericTool';
 
 interface ToolPageProps {
@@ -105,6 +106,8 @@ export default function ToolPage({ tool }: ToolPageProps) {
         return <RepairPDF />;
       case 'ocr-pdf':
         return <OCRPDF />;
+      case 'replace-text-pdf':
+        return <ReplaceTextPDF />;
       default:
         return <GenericTool tool={tool} />;
     }

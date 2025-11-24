@@ -60,8 +60,11 @@ def convert_pdf_to_html(pdf_path: str, html_path: str) -> bool:
         html_content.append('        }')
         html_content.append('        .text-element {')
         html_content.append('            position: absolute;')
+        html_content.append('            display: inline-block;')
         html_content.append('            white-space: pre;')
         html_content.append('            line-height: 1.0;')
+        html_content.append('            box-sizing: border-box;')
+        html_content.append('            margin: 0;')
         html_content.append('            z-index: 2;')
         html_content.append('        }')
         html_content.append('        .border-element {')
@@ -388,14 +391,28 @@ def convert_pdf_to_html(pdf_path: str, html_path: str) -> bool:
             # Extract text blocks with positions
             text_dict = page.get_text("dict")
             
+            # Store previous span info for spacing calculation
+            prev_span_end_x = None
+            prev_span_y = None
+            prev_span_right_padding = 0  # Track previous element's right padding
+            prev_span_is_bold = False  # Track if previous element was bold
+            prev_span_font_size = 12  # Track previous element's font size for bold extension calculation
+            
             # Process blocks
             for block in text_dict.get("blocks", []):
                 if "lines" not in block:  # Skip non-text blocks (images, etc.)
                     continue
                 
                 for line in block.get("lines", []):
-                    for span in line.get("spans", []):
-                        text = span.get("text", "").strip()
+                    prev_span_end_x = None  # Reset for each line
+                    prev_span_right_padding = 0  # Reset padding for each line
+                    prev_span_is_bold = False  # Reset bold flag for each line
+                    prev_span_font_size = 12  # Reset font size for each line
+                    spans_in_line = line.get("spans", [])
+                    
+                    for span_idx, span in enumerate(spans_in_line):
+                        text = span.get("text", "")
+                        # Don't strip - preserve leading/trailing spaces for spacing
                         if not text:
                             continue
                         
@@ -403,14 +420,126 @@ def convert_pdf_to_html(pdf_path: str, html_path: str) -> bool:
                         bbox = span.get("bbox", [0, 0, 0, 0])
                         x0, y0, x1, y1 = bbox
                         
-                        # Get font properties
+                        # Get font properties (needed for spacing calculation)
                         font_size = span.get("size", 12)
                         font_name = span.get("font", "Arial")
                         flags = span.get("flags", 0)
                         
-                        # Determine if bold/italic
-                        is_bold = flags & 16  # Bit 4 indicates bold
-                        is_italic = flags & 1  # Bit 0 indicates italic
+                        # Determine font weight early (needed for padding calculation)
+                        is_bold = (flags & 16) != 0
+                        is_italic = (flags & 1) != 0
+                        font_name_lower = font_name.lower()
+                        
+                        # Quick font weight check for padding calculation
+                        font_weight_for_padding = "normal"
+                        bold_indicators = ["-bold", "bold-", "_bold", "bold_", "boldmt", "-b", "-black", "boldit", "bolditalic"]
+                        if is_bold or any(indicator in font_name_lower for indicator in bold_indicators):
+                            font_weight_for_padding = "bold"
+                        elif "black" in font_name_lower or "heavy" in font_name_lower:
+                            font_weight_for_padding = "900"
+                        elif font_name_lower.endswith("bold") or font_name_lower.endswith("boldmt"):
+                            font_weight_for_padding = "bold"
+                        
+                        # Calculate padding for this element (for visual spacing, not position adjustment)
+                        base_padding = max(1, font_size * 0.05)  # Reduced padding: 5% of font size, min 1px
+                        if font_weight_for_padding == "bold" or font_weight_for_padding in ["600", "700", "800", "900"]:
+                            current_padding = max(2, font_size * 0.1)  # Reduced padding: 10% of font size for bold, min 2px
+                        else:
+                            current_padding = base_padding
+                        
+                        # Adjust left position ONLY when there's actual overlap or very close proximity
+                        # Only shift when elements are overlapping or extremely close (< 1px gap)
+                        if prev_span_end_x is not None and abs(y0 - (prev_span_y or y0)) < font_size * 0.5:
+                            # Check actual gap between bounding boxes
+                            actual_gap = x0 - prev_span_end_x
+                            
+                            # Only intervene if there's overlap (gap < 0) or extremely close (< 1px)
+                            if actual_gap < 1:
+                                # Calculate visual end of previous element only when needed
+                                prev_visual_end_x = prev_span_end_x
+                                
+                                # If previous element is bold, it may extend beyond bbox
+                                # Only apply extension if we detect overlap/close proximity
+                                if prev_span_is_bold and actual_gap < 0:
+                                    # Bold text extends beyond bbox - use conservative extension
+                                    # Only apply when there's actual overlap
+                                    bold_extension = max(3, prev_span_font_size * 0.08)  # 8% of font size, min 3px
+                                    prev_visual_end_x = prev_span_end_x + bold_extension
+                                
+                                # Calculate gap to visual end
+                                gap_to_visual_end = x0 - prev_visual_end_x
+                                
+                                # Only shift if still overlapping after accounting for bold extension
+                                if gap_to_visual_end < 0:
+                                    # Overlapping - shift right by minimal amount to prevent overlap
+                                    # Use 1px gap for normal, 2px if current is also bold
+                                    min_gap = 2 if (font_weight_for_padding == "bold" or font_weight_for_padding in ["600", "700", "800", "900"]) else 1
+                                    x0 = prev_visual_end_x + min_gap
+                                elif gap_to_visual_end < 1:
+                                    # Very close but not overlapping - minimal shift only if previous is bold
+                                    if prev_span_is_bold:
+                                        x0 = prev_visual_end_x + 1
+                        
+                        # Calculate spacing between spans for text content (after position adjustment)
+                        if prev_span_end_x is not None:
+                            gap = x0 - prev_span_end_x
+                            # If gap is significant (more than 1px), add space to text
+                            # Also check if they're on the same line (similar y position)
+                            if gap > 1 and abs(y0 - (prev_span_y or y0)) < font_size * 0.5:
+                                # Add space proportional to the gap, but more conservatively
+                                num_spaces = max(1, int(gap / (font_size * 0.5)))  # More conservative spacing
+                                text = " " * num_spaces + text
+                        
+                        # Update previous span position for next element
+                        # Store the bounding box end (x1) - visual end will be calculated next iteration
+                        prev_span_end_x = x1
+                        prev_span_y = y0
+                        prev_span_right_padding = current_padding
+                        prev_span_is_bold = (font_weight_for_padding == "bold" or font_weight_for_padding in ["600", "700", "800", "900"])
+                        prev_span_font_size = font_size
+                        
+                        # Now strip only if it's all whitespace
+                        text = text.rstrip() if text.strip() else text
+                        if not text.strip():
+                            continue
+                        
+                        # Get font weight - check multiple sources with priority (already have is_bold and font_name_lower)
+                        font_weight = "normal"
+                        
+                        # Priority 1: Check font name patterns first (most reliable for many PDFs)
+                        # Check for bold indicators in font name
+                        bold_indicators = ["-bold", "bold-", "_bold", "bold_", "boldmt", "-b", "-black", "boldit", "bolditalic"]
+                        if any(indicator in font_name_lower for indicator in bold_indicators):
+                            font_weight = "bold"
+                        # Check for other weights in font name
+                        elif "black" in font_name_lower or "heavy" in font_name_lower:
+                            font_weight = "900"
+                        elif "extrabold" in font_name_lower or "ultrabold" in font_name_lower:
+                            font_weight = "800"
+                        elif "semibold" in font_name_lower or "demi" in font_name_lower:
+                            font_weight = "600"
+                        elif "medium" in font_name_lower:
+                            font_weight = "500"
+                        elif "light" in font_name_lower or "thin" in font_name_lower:
+                            font_weight = "300"
+                        elif "extralight" in font_name_lower or "ultralight" in font_name_lower:
+                            font_weight = "200"
+                        # Priority 2: Check PyMuPDF flags (fallback if font name doesn't indicate)
+                        elif is_bold:
+                            font_weight = "bold"
+                        
+                        # Priority 3: Check if font appears heavier based on size relative to other text
+                        # (This is a heuristic - larger text might be bold)
+                        # We'll skip this as it's not reliable
+                        
+                        # Additional check: Some PDFs use font names like "Arial,Bold" or "TimesNewRomanPS-BoldMT"
+                        if font_weight == "normal":
+                            # Check for comma-separated font names with Bold
+                            if "," in font_name and "bold" in font_name_lower:
+                                font_weight = "bold"
+                            # Check for font names ending with Bold variants
+                            elif font_name_lower.endswith("bold") or font_name_lower.endswith("boldmt"):
+                                font_weight = "bold"
                         
                         # Get color
                         color = span.get("color", 0)
@@ -420,27 +549,39 @@ def convert_pdf_to_html(pdf_path: str, html_path: str) -> bool:
                         b = color & 0xFF
                         color_str = f"rgb({r}, {g}, {b})"
                         
-                        # Escape HTML
+                        # Escape HTML but preserve spaces
                         text_escaped = html.escape(text)
                         
+                        # Use the same padding values calculated earlier (current_padding)
+                        # This padding is minimal and only for visual spacing, not position adjustment
+                        horizontal_padding = current_padding
+                        
                         # Build style string
+                        # x0 has already been adjusted if elements were overlapping
+                        # Add minimal right padding for visual spacing
                         style_parts = [
                             f"left: {x0}px",
                             f"top: {y0}px",
                             f"font-size: {font_size}px",
                             f"font-family: '{font_name}', Arial, sans-serif",
-                            f"color: {color_str}"
+                            f"font-weight: {font_weight}",
+                            f"color: {color_str}",
+                            f"position: absolute",
+                            f"white-space: pre",
+                            f"padding-right: {horizontal_padding}px",
+                            f"line-height: 1",
+                            f"margin: 0",
+                            f"display: inline-block"
                         ]
                         
-                        if is_bold:
-                            style_parts.append("font-weight: bold")
                         if is_italic:
                             style_parts.append("font-style: italic")
                         
                         style_str = "; ".join(style_parts)
                         
-                        # Add text element
-                        html_content.append(f'        <div class="text-element" style="{style_str}">{text_escaped}</div>')
+                        # Add text element - use span instead of div to be more inline-friendly
+                        # But keep absolute positioning for exact layout
+                        html_content.append(f'        <span class="text-element" style="{style_str}">{text_escaped}</span>')
             
             html_content.append('    </div>')
         

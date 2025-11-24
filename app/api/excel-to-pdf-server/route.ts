@@ -168,10 +168,12 @@ export async function POST(request: NextRequest) {
 
     // Read file as buffer
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const buffer = Buffer.from(uint8Array);
 
     // Load Excel workbook
     const workbook = new ExcelJS.Workbook();
+    // @ts-expect-error - ExcelJS accepts Buffer but TypeScript infers a generic Buffer type
     await workbook.xlsx.load(buffer);
 
     // Create PDF document
@@ -342,7 +344,7 @@ export async function POST(request: NextRequest) {
 
           // Apply fill color if present
           if (fill && fill.type === 'pattern' && fill.fgColor) {
-            const color = fill.fgColor.argb || fill.fgColor.rgb;
+            const color = fill.fgColor.argb;
             if (color) {
               const hexColor = color.replace('#', '');
               const r = parseInt(hexColor.substring(0, 2), 16) / 255;
@@ -367,7 +369,7 @@ export async function POST(request: NextRequest) {
           // Get text color
           let textColor = rgb(0, 0, 0);
           if (font?.color) {
-            const color = font.color.argb || font.color.rgb;
+            const color = font.color.argb;
             if (color) {
               const hexColor = color.replace('#', '');
               const r = parseInt(hexColor.substring(0, 2), 16) / 255;
@@ -420,7 +422,7 @@ export async function POST(request: NextRequest) {
     const pdfBytes = await pdfDoc.save();
 
     // Return the PDF file
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

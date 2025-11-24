@@ -104,42 +104,103 @@ export default function WatermarkPDF() {
       const font = await pdf.embedFont(StandardFonts.HelveticaBold);
       const colorRgb = hexToRgb(color);
       const opacityValue = parseFloat(opacity);
+      const fontSizeNum = parseFloat(fontSize);
       
-      pages.forEach((page) => {
+      // Create rotated text image for diagonal watermark
+      let rotatedImageBytes: Uint8Array | null = null;
+      if (position === 'diagonal') {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context');
+        
+        // Set font first to measure text
+        ctx.font = `bold ${fontSizeNum}px Arial`;
+        const textMetrics = ctx.measureText(watermarkText);
+        const textWidth = textMetrics.width;
+        const textHeight = fontSizeNum;
+        
+        // Canvas size: diagonal of rotated text (use Pythagorean theorem)
+        // For -45 degree rotation, we need sqrt(2) * max(width, height)
+        const diagonal = Math.sqrt(textWidth * textWidth + textHeight * textHeight);
+        const padding = 50; // Extra padding
+        const canvasSize = Math.ceil(diagonal + padding);
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+        
+        // Re-set font after canvas resize (context resets)
+        ctx.font = `bold ${fontSizeNum}px Arial`;
+        ctx.fillStyle = `rgba(${colorRgb.r}, ${colorRgb.g}, ${colorRgb.b}, ${opacityValue})`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Draw rotated text at center
+        ctx.save();
+        ctx.translate(canvasSize / 2, canvasSize / 2);
+        ctx.rotate(-45 * Math.PI / 180);
+        ctx.fillText(watermarkText, 0, 0);
+        ctx.restore();
+        
+        // Convert to PNG bytes
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64 = dataUrl.split(',')[1];
+        const binaryString = atob(base64);
+        rotatedImageBytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          rotatedImageBytes[i] = binaryString.charCodeAt(i);
+        }
+      }
+      
+      // Add watermark to each page
+      for (const page of pages) {
         const { width, height } = page.getSize();
         
         if (position === 'center') {
-          // Center watermark
+          // Center watermark - simple text
+          const textWidth = font.widthOfTextAtSize(watermarkText, fontSizeNum);
           page.drawText(watermarkText, {
-            x: width / 2 - (parseFloat(fontSize) * watermarkText.length / 4),
+            x: (width - textWidth) / 2,
             y: height / 2,
-            size: parseFloat(fontSize),
+            size: fontSizeNum,
             font: font,
             color: rgb(colorRgb.r / 255, colorRgb.g / 255, colorRgb.b / 255),
             opacity: opacityValue,
-            rotate: { angle: 0 } as any,
           });
         } else {
-          // Diagonal watermark
+          // Diagonal watermark - use rotated image
+          if (rotatedImageBytes) {
+            const image = await pdf.embedPng(rotatedImageBytes);
+            const { width: imgWidth, height: imgHeight } = image.scale(1);
+            
+            // Center the image
+            page.drawImage(image, {
+              x: (width - imgWidth) / 2,
+              y: (height - imgHeight) / 2,
+              width: imgWidth,
+              height: imgHeight,
+              opacity: opacityValue,
+            });
+          } else {
+            // Fallback: center text
+            const textWidth = font.widthOfTextAtSize(watermarkText, fontSizeNum);
           page.drawText(watermarkText, {
-            x: width / 2 - (parseFloat(fontSize) * watermarkText.length / 4),
+              x: (width - textWidth) / 2,
             y: height / 2,
-            size: parseFloat(fontSize),
+              size: fontSizeNum,
             font: font,
             color: rgb(colorRgb.r / 255, colorRgb.g / 255, colorRgb.b / 255),
             opacity: opacityValue,
-            rotate: { angle: -45 } as any, // -45 degrees
           });
+          }
         }
-      });
+      }
       
-      // Save watermarked PDF
+      // Save and download
       const pdfBytes = await pdf.save();
       const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = selectedFile.name.replace('.pdf', '') + '_watermarked.pdf';
+      link.download = selectedFile.name.replace(/\.pdf$/i, '') + '_watermarked.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -159,6 +220,7 @@ export default function WatermarkPDF() {
       b: parseInt(result[3], 16)
     } : { r: 128, g: 128, b: 128 };
   };
+
 
   return (
     <section className="py-12">
