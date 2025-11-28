@@ -40,6 +40,7 @@ import PDFToPDFA from './tools/PDFToPDFA';
 import RepairPDF from './tools/RepairPDF';
 import OCRPDF from './tools/OCRPDF';
 import ReplaceTextPDF from './tools/ReplaceTextPDF';
+import EditPDFCanvas from './tools/EditPDFCanvas';
 import GenericTool from './tools/GenericTool';
 
 interface ToolPageProps {
@@ -108,6 +109,8 @@ export default function ToolPage({ tool }: ToolPageProps) {
         return <OCRPDF />;
       case 'replace-text-pdf':
         return <ReplaceTextPDF />;
+      case 'edit-pdf-canvas':
+        return <EditPDFCanvas />;
       default:
         return <GenericTool tool={tool} />;
     }

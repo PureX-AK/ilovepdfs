@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use pdf-redactor script for accurate positioning (as requested by user)
+    // Use pdf-redactor script for accurate positioning
     let scriptPath = path.join(process.cwd(), 'scripts', 'pdf_replace_text_redactor.py');
     if (!fs.existsSync(scriptPath)) {
       return NextResponse.json({ success: false, error: 'Replace text script not found' }, { status: 500 });
@@ -170,8 +170,8 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error('Text replacement error:', error);
       let errorMessage = 'Text replacement failed';
-      if (error.message && error.message.includes('PyMuPDF')) {
-        errorMessage = 'PyMuPDF library is not installed. Please install it with: pip install PyMuPDF';
+      if (error.message && error.message.includes('pdf-redactor')) {
+        errorMessage = 'pdf-redactor library is not installed. Please install it with: pip install pdf-redactor';
       } else if (error.message) {
         errorMessage = `Text replacement failed: ${error.message}`;
       }

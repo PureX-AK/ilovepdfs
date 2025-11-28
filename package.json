@@ -16,6 +16,7 @@
     "test:all": "playwright test"
   },
   "dependencies": {
+    "@component-hook/pdf-canvas": "^0.1.1",
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-brands-svg-icons": "^7.1.0",
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
@@ -40,6 +41,7 @@
     "react-pdf": "^10.2.0"
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "^4.0.0",
     "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",

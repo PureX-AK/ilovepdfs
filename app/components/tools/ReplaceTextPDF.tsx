@@ -476,18 +476,47 @@ export default function ReplaceTextPDF() {
         return;
       }
       
+      // Helper function to detect if a span is bold
+      const isBold = (span: HTMLElement): boolean => {
+        const style = getComputedStyle(span);
+        const fontWeight = style.fontWeight;
+        const fontFamily = style.fontFamily.toLowerCase();
+        
+        // Check font-weight (700+ is bold, or 'bold')
+        if (fontWeight === 'bold' || fontWeight === 'bolder' || 
+            (typeof fontWeight === 'string' && fontWeight.includes('bold'))) {
+          return true;
+        }
+        if (typeof fontWeight === 'number' && fontWeight >= 700) {
+          return true;
+        }
+        if (typeof fontWeight === 'string' && !isNaN(parseInt(fontWeight)) && parseInt(fontWeight) >= 700) {
+          return true;
+        }
+        
+        // Check font-family for bold indicators
+        if (fontFamily.includes('bold') || fontFamily.includes('black') || 
+            fontFamily.includes('heavy') || fontFamily.includes('semibold') || 
+            fontFamily.includes('demibold')) {
+          return true;
+        }
+        
+        return false;
+      };
+      
       // Group spans into lines based on their top position
-      const spansWithPositions: Array<{span: HTMLElement, rect: DOMRect, text: string}> = [];
+      const spansWithPositions: Array<{span: HTMLElement, rect: DOMRect, text: string, isBold: boolean}> = [];
       Array.from(textSpans).forEach((span: any) => {
         const text = span.textContent?.trim();
         if (!text) return;
         const rect = span.getBoundingClientRect();
-        spansWithPositions.push({ span, rect, text });
+        const bold = isBold(span);
+        spansWithPositions.push({ span, rect, text, isBold: bold });
       });
       
-      // Group spans by similar top position (same line)
+      // First, group spans by similar top position (same line)
       const lineTolerance = 3; // pixels - spans within 3px of each other vertically are on the same line
-      const lines: Array<Array<{span: HTMLElement, rect: DOMRect, text: string}>> = [];
+      const lines: Array<Array<{span: HTMLElement, rect: DOMRect, text: string, isBold: boolean}>> = [];
       
       spansWithPositions.forEach((item) => {
         // Find if this span belongs to an existing line
@@ -515,11 +544,18 @@ export default function ReplaceTextPDF() {
         line.sort((a, b) => a.rect.left - b.rect.left);
       });
       
-      // Store line information on each span
+      // Store line and formatting information on each span
+      // If a line has mixed formatting, we'll handle selection in the click handler
       lines.forEach((line, lineIndex) => {
+        // Check if the entire line has the same formatting
+        const firstItemFormatting = line[0].isBold;
+        const allSameFormatting = line.every(item => item.isBold === firstItemFormatting);
+        
         line.forEach((item) => {
           (item.span as any)._lineIndex = lineIndex;
-          (item.span as any)._lineSpans = line.map(l => l.span);
+          (item.span as any)._allLineSpans = line.map(l => l.span); // Store ALL spans in the line
+          (item.span as any)._isBold = item.isBold;
+          (item.span as any)._lineHasMixedFormatting = !allSameFormatting; // Track if line has mixed formatting
         });
       });
       
@@ -590,7 +626,32 @@ export default function ReplaceTextPDF() {
           }
           
           // Get all spans in the same line as the clicked span
-          const lineSpans = (span._lineSpans as HTMLElement[]) || [span];
+          const allLineSpans = ((span as any)._allLineSpans as HTMLElement[]) || [span];
+          const lineHasMixedFormatting = (span as any)._lineHasMixedFormatting || false;
+          
+          // Determine which spans to select based on formatting
+          let lineSpans: HTMLElement[];
+          
+          if (lineHasMixedFormatting) {
+            // Line has mixed formatting - only select spans with same formatting as clicked span
+            const clickedIsBold = (span as any)._isBold !== undefined ? (span as any)._isBold : isBold(span);
+            lineSpans = allLineSpans.filter((s: any) => {
+              const spanIsBold = s._isBold !== undefined ? s._isBold : isBold(s);
+              return spanIsBold === clickedIsBold;
+            });
+            
+            // If no spans match (shouldn't happen), fall back to the clicked span
+            if (lineSpans.length === 0) {
+              lineSpans = [span];
+            }
+            
+            console.log('DEBUG: Mixed formatting line - clicked:', clickedIsBold ? 'bold' : 'normal');
+            console.log('DEBUG: Selected spans (same formatting):', lineSpans.length);
+          } else {
+            // Line has uniform formatting - select all spans in the line
+            lineSpans = allLineSpans;
+            console.log('DEBUG: Uniform formatting line - selected all spans:', lineSpans.length);
+          }
           
           // Get the original text color from the first span
           let originalColor = getComputedStyle(span).color || '#000000';
@@ -676,6 +737,7 @@ export default function ReplaceTextPDF() {
           // Store reference to editable div on all spans in the line
           lineSpans.forEach((lineSpan) => {
             (lineSpan as any)._editableDiv = editableDiv;
+            (lineSpan as any)._lineSpans = lineSpans; // Store line spans for restoration
             (lineSpan as any)._originalLineText = lineText; // Store ORIGINAL text (with spaces) for matching
             (lineSpan as any)._normalizedLineText = normalizedLineText; // Store normalized text for comparison
           });

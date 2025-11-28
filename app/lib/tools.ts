@@ -140,6 +140,17 @@ export const toolsConfig: Record<string, ToolConfig> = {
     pageDescription: 'Add text, images, shapes or freehand annotations to a PDF document. Edit the size, font, and color of the added content.',
     isNew: true,
   },
+  'edit-pdf-canvas': {
+    id: 'edit-pdf-canvas',
+    title: 'Edit PDF (Canvas)',
+    description: 'Convert PDF to Canvas, edit text directly on the canvas, and convert back to PDF. Visual editing with precise control.',
+    icon: faPenToSquare,
+    iconBgColor: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    pageTitle: 'Edit PDF with Canvas',
+    pageDescription: 'Convert PDF to Canvas, edit text directly on the canvas, and convert back to PDF. Visual editing with precise control.',
+    isNew: true,
+  },
   'replace-text-pdf': {
     id: 'replace-text-pdf',
     title: 'Replace Text in PDF',

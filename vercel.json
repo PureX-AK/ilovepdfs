@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    },
+    "app/api/compress-pdf/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/pdf-ocr-server/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/pdf-to-word-server/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/pdf-to-excel-server/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/pdf-to-pptx-server/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/pdf-to-html-server/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
+

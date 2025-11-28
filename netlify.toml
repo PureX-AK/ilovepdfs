@@ -1,0 +1,50 @@
+[build]
+  # Build command for Next.js
+  command = "npm run build"
+  # Publish directory is handled automatically by @netlify/plugin-nextjs
+  # No need to specify - plugin handles Next.js output
+
+[build.environment]
+  # Node.js version
+  NODE_VERSION = "18"
+  # Python version (if needed for build scripts)
+  PYTHON_VERSION = "3.11"
+  # Set production environment
+  NODE_ENV = "production"
+
+# Netlify Functions configuration
+[functions]
+  # Node.js runtime for functions
+  node_bundler = "esbuild"
+  # Timeout: 10 seconds (free tier), 26 seconds (Pro/Business)
+  # Note: Python scripts won't work - convert to Node.js or use external services
+  included_files = ["scripts/**"]
+
+# Redirect rules are handled automatically by @netlify/plugin-nextjs
+# No manual redirects needed for Next.js
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Headers for static assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Headers for API routes
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Plugin configuration for Next.js
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+

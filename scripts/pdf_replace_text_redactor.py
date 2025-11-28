@@ -17,27 +17,6 @@ except ImportError:
 
 
 def replace_text_at_positions(pdf_path: str, output_path: str, replacements: list) -> bool:
-    """
-    Replace text at specific positions in PDF using pdf-redactor.
-    
-    Args:
-        pdf_path: Path to input PDF file
-        output_path: Path to output PDF file
-        replacements: List of replacement dicts with keys:
-            - oldText: Text to replace (will be escaped for regex)
-            - newText: Replacement text
-            - pageNum: Page number (1-indexed) - for reference only, pdf-redactor processes all pages
-            
-    Returns:
-        True if replacement successful, False otherwise
-    """
-    print("\n" + "="*70, file=sys.stderr)
-    print("DEBUG: pdf_replace_text_redactor.py - replace_text_at_positions() CALLED", file=sys.stderr)
-    print(f"DEBUG: PDF path: {pdf_path}", file=sys.stderr)
-    print(f"DEBUG: Output path: {output_path}", file=sys.stderr)
-    print(f"DEBUG: Number of replacements: {len(replacements)}", file=sys.stderr)
-    print("="*70 + "\n", file=sys.stderr)
-    
     try:
         if not os.path.exists(pdf_path):
             print(f"ERROR: PDF file not found: {pdf_path}", file=sys.stderr)
@@ -47,86 +26,80 @@ def replace_text_at_positions(pdf_path: str, output_path: str, replacements: lis
             print("ERROR: No replacements provided", file=sys.stderr)
             return False
         
-        # Create redactor options
         options = pdf_redactor.RedactorOptions()
-        
-        # Set input and output streams
         options.input_stream = open(pdf_path, 'rb')
         options.output_stream = open(output_path, 'wb')
         
-        # Build content filters from replacements
-        # pdf-redactor expects (pattern, callable) where callable takes match and returns replacement
         content_filters = []
-        
-        print(f"\n{'='*70}", file=sys.stderr)
-        print("DEBUG: PROCESSING REPLACEMENTS", file=sys.stderr)
-        print(f"{'='*70}", file=sys.stderr)
         
         for idx, replacement in enumerate(replacements):
             old_text = replacement.get('oldText', '').strip()
             new_text = replacement.get('newText', '').strip()
-            page_num = replacement.get('pageNum', 1)
-            
-            print(f"\nReplacement {idx + 1}:", file=sys.stderr)
-            print(f"  oldText (from frontend): '{old_text}'", file=sys.stderr)
-            print(f"  oldText length: {len(old_text)} chars", file=sys.stderr)
-            print(f"  newText: '{new_text}'", file=sys.stderr)
-            print(f"  pageNum: {page_num}", file=sys.stderr)
             
             if not old_text:
-                print(f"  WARNING: Skipping - oldText is empty", file=sys.stderr)
+                print(f"WARNING: Replacement {idx + 1} has empty oldText, skipping", file=sys.stderr)
                 continue
             
-            # Normalize text: remove all spaces for flexible matching
-            # This handles spacing differences between frontend and PDF
+            print(f"Processing replacement {idx + 1}:", file=sys.stderr)
+            print(f"  oldText length: {len(old_text)} chars", file=sys.stderr)
+            print(f"  oldText preview: {repr(old_text[:100])}...", file=sys.stderr)
+            print(f"  newText preview: {repr(new_text[:100])}...", file=sys.stderr)
+            
+            # Normalize text: remove ALL whitespace for comparison
             def normalize_text(text):
-                # Remove ALL spaces
                 return re.sub(r'\s+', '', text.strip())
             
-            normalized_old = normalize_text(old_text)
-            print(f"  Normalized oldText (spaces removed): '{normalized_old}'", file=sys.stderr)
+            # For very long text (paragraphs), we need a more flexible approach
+            # The issue is that PDFs may encode text differently (spaces, newlines, etc.)
+            # Strategy: Create a pattern that allows flexible whitespace matching
             
-            # For pdf-redactor, we need to create a flexible pattern
-            # Since pdf-redactor does regex matching, we can use a pattern that matches
-            # the text with optional spaces
-            # But first, let's try with the original text (exact match)
+            # First, try to escape special regex characters
             escaped_old_text = re.escape(old_text)
             
-            # Also create a normalized pattern (spaces removed) for flexible matching
-            # Replace spaces in the escaped text with \s* (zero or more whitespace)
-            flexible_pattern = re.sub(r'\\ ', r'\\s*', escaped_old_text)
+            # Replace escaped spaces with flexible whitespace pattern
+            # This allows spaces, newlines, tabs, etc. to match
+            # Use \s+ to match one or more whitespace characters
+            flexible_pattern = re.sub(r'\\ ', r'\\s+', escaped_old_text)
             
-            print(f"  Regex pattern (exact): '{escaped_old_text}'", file=sys.stderr)
-            print(f"  Regex pattern (flexible): '{flexible_pattern}'", file=sys.stderr)
+            # For very long text, also try a more aggressive pattern that allows
+            # optional whitespace between words (but this might be too permissive)
+            # Let's start with the simpler approach
             
-            # Try flexible pattern first (allows spacing differences)
             try:
-                pattern = re.compile(flexible_pattern, re.IGNORECASE)
-                print(f"  Using FLEXIBLE pattern (allows spacing differences)", file=sys.stderr)
-            except:
-                # Fallback to exact pattern
-                pattern = re.compile(escaped_old_text, re.IGNORECASE)
-                print(f"  Using EXACT pattern (fallback)", file=sys.stderr)
+                # Use DOTALL to allow . to match newlines, and IGNORECASE for case-insensitive
+                pattern = re.compile(flexible_pattern, re.IGNORECASE | re.DOTALL)
+                print(f"  Pattern compiled successfully (length: {len(flexible_pattern)} chars)", file=sys.stderr)
+            except Exception as e:
+                print(f"  ERROR: Failed to compile flexible pattern: {e}", file=sys.stderr)
+                print(f"  Falling back to exact pattern", file=sys.stderr)
+                try:
+                    pattern = re.compile(escaped_old_text, re.IGNORECASE)
+                except Exception as e2:
+                    print(f"  ERROR: Failed to compile exact pattern: {e2}", file=sys.stderr)
+                    print(f"  Skipping this replacement", file=sys.stderr)
+                    continue
             
-            # Create a callable function that returns the replacement text
-            # Use a factory function to properly capture each replacement text in closure
-            # This prevents all functions from capturing the same variable
-            def make_replacement_func(replacement_text):
+            # Track if replacement was applied
+            match_tracker = {'found': False, 'count': 0}
+            
+            def make_replacement_func(replacement_text, tracker):
                 def replacement_func(match):
-                    # Return the full replacement text
-                    # pdf-redactor may split this across tokens, but we return the full text
-                    return replacement_text
+                    tracker['found'] = True
+                    tracker['count'] += 1
+                    # Normalize spacing: collapse multiple spaces/newlines to single space
+                    normalized = re.sub(r'\s+', ' ', replacement_text.strip())
+                    print(f"  → MATCH #{tracker['count']} FOUND! Applying replacement", file=sys.stderr)
+                    return normalized
                 return replacement_func
             
-            replacement_func = make_replacement_func(new_text)
-            
-            # Add as a filter: (compiled_pattern, callable_function)
+            replacement_func = make_replacement_func(new_text, match_tracker)
+            # pdf-redactor expects (pattern, function) tuples only
             content_filters.append((pattern, replacement_func))
-            print(f"  ✓ Added to content filters", file=sys.stderr)
-        
-        print(f"\n{'='*70}", file=sys.stderr)
-        print(f"DEBUG: Total content filters created: {len(content_filters)}", file=sys.stderr)
-        print(f"{'='*70}\n", file=sys.stderr)
+            # Store trackers separately for reporting
+            if not hasattr(replace_text_at_positions, '_match_trackers'):
+                replace_text_at_positions._match_trackers = []
+            replace_text_at_positions._match_trackers.append(match_tracker)
+            print(f"  ✓ Pattern created and added to filters", file=sys.stderr)
         
         if not content_filters:
             print("ERROR: No valid replacements to process", file=sys.stderr)
@@ -136,18 +109,39 @@ def replace_text_at_positions(pdf_path: str, output_path: str, replacements: lis
         
         options.content_filters = content_filters
         
+        print(f"\nTotal filters to apply: {len(content_filters)}", file=sys.stderr)
+        print("Starting redaction process...", file=sys.stderr)
+        
         try:
-            # Perform redaction/replacement
             pdf_redactor.redactor(options)
+            print("✓ Redaction completed successfully", file=sys.stderr)
+            
+            # Report match results
+            if hasattr(replace_text_at_positions, '_match_trackers') and replace_text_at_positions._match_trackers:
+                print("\nReplacement results:", file=sys.stderr)
+                for idx, tracker in enumerate(replace_text_at_positions._match_trackers):
+                    if tracker['count'] > 0:
+                        print(f"  Replacement {idx + 1}: ✓ Applied ({tracker['count']} match(es))", file=sys.stderr)
+                    else:
+                        print(f"  Replacement {idx + 1}: ✗ No match found", file=sys.stderr)
+                        print(f"    → The text may not exist in the PDF, or spacing/encoding differs", file=sys.stderr)
+                        print(f"    → For long paragraphs, try editing smaller sections", file=sys.stderr)
+        except Exception as e:
+            print(f"ERROR during redaction: {str(e)}", file=sys.stderr)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            return False
         finally:
-            # Close streams
             options.input_stream.close()
             options.output_stream.close()
         
-        # Verify output file was created
         if not os.path.exists(output_path):
             print("ERROR: Output file was not created", file=sys.stderr)
             return False
+        
+        # Check output file size
+        output_size = os.path.getsize(output_path)
+        print(f"Output file created: {output_size} bytes", file=sys.stderr)
         
         return True
         
@@ -159,18 +153,6 @@ def replace_text_at_positions(pdf_path: str, output_path: str, replacements: lis
 
 
 if __name__ == '__main__':
-    print("="*70, file=sys.stderr)
-    print("DEBUG: pdf_replace_text_redactor.py STARTED", file=sys.stderr)
-    print(f"DEBUG: Arguments received: {len(sys.argv)}", file=sys.stderr)
-    for i, arg in enumerate(sys.argv):
-        if i > 0 and i < len(sys.argv) - 1:  # Don't print full JSON, just indicate it's there
-            if arg == '--json' and i + 1 < len(sys.argv):
-                print(f"  arg[{i}]: {arg}", file=sys.stderr)
-                print(f"  arg[{i+1}]: (JSON data, {len(sys.argv[i+1])} chars)", file=sys.stderr)
-            else:
-                print(f"  arg[{i}]: {arg[:100]}..." if len(arg) > 100 else f"  arg[{i}]: {arg}", file=sys.stderr)
-    print("="*70, file=sys.stderr)
-    
     if len(sys.argv) < 3:
         print("Usage: python pdf_replace_text_redactor.py <input_pdf> <output_pdf> --json <replacements_json>", file=sys.stderr)
         sys.exit(1)
