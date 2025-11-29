@@ -3,7 +3,7 @@ import { SignJWT } from 'jose';
 import { createUser, findUserByEmail } from '../../../../lib/models/User';
 import { getGoogleCredentials } from '../../../../lib/google-credentials';
 
-const REDIRECT_URI = process.env.REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/auth/google/callback`;
+const REDIRECT_URI = process.env.REDIRECT_URI || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:8080'}/api/auth/google/callback`;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 
 export async function GET(request: NextRequest) {
