@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execSync, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
@@ -12,120 +12,157 @@ export async function POST(request: NextRequest) {
   let tempOutputPath: string | null = null;
 
   try {
-    // Try to find Ghostscript if not in PATH
-    // This helps when Ghostscript is installed but PATH wasn't updated
+    // Find Python executable
+    let pythonCmd: string | null = null;
+    const pythonCommands = ['python3', 'python', 'py'];
+    
+    // First, try to find Python using system commands
     if (process.platform === 'win32') {
-      let foundGsPath: string | null = null;
-      
-      // Function to search for Ghostscript in a base directory
-      const findGhostscript = (baseDir: string): string | null => {
+      // On Windows, use 'where' command to find python3
+      try {
+        const { execSync } = require('child_process');
         try {
-          if (!fs.existsSync(baseDir)) {
-            return null;
-          }
-          
-          const gsDirs = fs.readdirSync(baseDir);
-          for (const dir of gsDirs) {
-            // Try gswin64c.exe first (64-bit)
-            const binPath64 = path.join(baseDir, dir, 'bin', 'gswin64c.exe');
-            if (fs.existsSync(binPath64)) {
-              return path.dirname(binPath64);
-            }
-            
-            // Try gswin32c.exe (32-bit)
-            const binPath32 = path.join(baseDir, dir, 'bin', 'gswin32c.exe');
-            if (fs.existsSync(binPath32)) {
-              return path.dirname(binPath32);
-            }
-          }
-        } catch (e) {
-          // Ignore errors when searching
-        }
-        return null;
-      };
-      
-      // Search in both Program Files locations
-      const searchPaths = [
-        'C:\\Program Files\\gs',
-        'C:\\Program Files (x86)\\gs',
-      ];
-      
-      for (const searchPath of searchPaths) {
-        foundGsPath = findGhostscript(searchPath);
-        if (foundGsPath) {
-          break;
-        }
-      }
-      
-      // If found, add to PATH
-      if (foundGsPath) {
-        if (!process.env.PATH?.includes(foundGsPath)) {
-          process.env.PATH = `${foundGsPath};${process.env.PATH || ''}`;
-        }
-        
-        // Also set GS_BIN environment variable that some packages check
-        const gsExe = fs.existsSync(path.join(foundGsPath, 'gswin64c.exe'))
-          ? path.join(foundGsPath, 'gswin64c.exe')
-          : path.join(foundGsPath, 'gswin32c.exe');
-        
-        if (fs.existsSync(gsExe)) {
-          process.env.GS_BIN = gsExe;
-          process.env.GHOSTSCRIPT = gsExe;
-          // Store for use in compression function
-          (global as any).__gsExecutable = gsExe;
-        }
-        
-        console.log(`Found Ghostscript at: ${foundGsPath}`);
-        console.log(`Ghostscript executable: ${gsExe}`);
-      } else {
-        // Don't throw error - Ghostscript might be in system PATH already
-        // Let compress-pdf package try to find it
-        console.log('Ghostscript not found in common installation locations, checking system PATH...');
-        
-        // Try to verify if gswin64c is accessible via PATH and get its location
-        try {
-          // On Windows, use 'where' command to find executable
-          const whereOutput = execSync('where gswin64c', { 
+          const whereOutput = execSync('where python3', { 
             encoding: 'utf-8',
             stdio: 'pipe',
             shell: true as any
           }).trim();
           
-          if (whereOutput) {
-            const gsPath = whereOutput.split('\n')[0].trim();
-            const gsDir = path.dirname(gsPath);
-            
-            // Add to PATH if not already there
-              if (!process.env.PATH?.includes(gsDir)) {
-                process.env.PATH = `${gsDir};${process.env.PATH || ''}`;
-              }
-            
-            process.env.GS_BIN = gsPath;
-            process.env.GHOSTSCRIPT = gsPath;
-            (global as any).__gsExecutable = gsPath;
-            
-            console.log(`Found Ghostscript in system PATH: ${gsPath}`);
+          if (whereOutput && !whereOutput.includes('INFO:')) {
+            const pythonPath = whereOutput.split('\n')[0].trim();
+            try {
+              await execFileAsync(pythonPath, ['--version'], { timeout: 5000 });
+              pythonCmd = pythonPath;
+              console.log(`Found Python via 'where python3': ${pythonPath}`);
+            } catch (e) {
+              console.log(`Python found at ${pythonPath} but version check failed:`, e);
+              // Continue to try other methods
             }
+          }
+        } catch (whereError: any) {
+          // 'where' command failed (python3 not in PATH), try 'where python'
+          try {
+            const whereOutput = execSync('where python', { 
+              encoding: 'utf-8',
+              stdio: 'pipe',
+              shell: true as any
+            }).trim();
+            
+            if (whereOutput && !whereOutput.includes('INFO:')) {
+              const pythonPath = whereOutput.split('\n')[0].trim();
+              try {
+                await execFileAsync(pythonPath, ['--version'], { timeout: 5000 });
+                pythonCmd = pythonPath;
+                console.log(`Found Python via 'where python': ${pythonPath}`);
+              } catch (e) {
+                // Continue to try other methods
+              }
+            }
+          } catch (e) {
+            // Both 'where python3' and 'where python' failed
+            console.log('Python not found in PATH via "where" command');
+          }
+        }
+      } catch (e) {
+        // 'where' command failed, continue to try other methods
+        console.log('Error running "where" command:', e);
+      }
+      
+      // If not found via 'where', try direct paths
+      if (!pythonCmd) {
+        const pythonPaths = [
+          'python3.exe',
+          'python.exe',
+          'py',
+          'C:\\Python311\\python.exe',
+          'C:\\Python310\\python.exe',
+          'C:\\Python39\\python.exe',
+          'C:\\Python38\\python.exe',
+          'C:\\Python314\\python.exe',
+          'C:\\Python313\\python.exe',
+          'C:\\Python312\\python.exe',
+          'C:\\Program Files\\Python311\\python.exe',
+          'C:\\Program Files\\Python310\\python.exe',
+          'C:\\Program Files (x86)\\Python311\\python.exe',
+          'C:\\Program Files (x86)\\Python310\\python.exe',
+        ];
+        
+        for (const pyPath of pythonPaths) {
+          try {
+            await execFileAsync(pyPath, ['--version'], { timeout: 5000 });
+            pythonCmd = pyPath;
+            console.log(`Found Python at: ${pyPath}`);
+            break;
+          } catch (e) {
+            // Try next path
+          }
+        }
+      }
+    } else {
+      // On Unix-like systems, try standard commands
+      for (const cmd of pythonCommands) {
+        try {
+          await execFileAsync(cmd, ['--version'], { timeout: 5000 });
+          pythonCmd = cmd;
+          console.log(`Found Python: ${cmd}`);
+          break;
         } catch (e) {
-          // If not found anywhere, throw error
-          throw new Error('Ghostscript not found. Please ensure Ghostscript is installed and accessible.');
+          // Try next command
         }
       }
       
-      // Ensure we have the Ghostscript executable path
-      const gsExe = (global as any).__gsExecutable || process.env.GS_BIN || process.env.GHOSTSCRIPT;
-      if (!gsExe || !fs.existsSync(gsExe)) {
-        throw new Error('Ghostscript executable not found. Please ensure Ghostscript is installed.');
+      // If not found, try 'which' command
+      if (!pythonCmd) {
+        try {
+          const { execSync } = require('child_process');
+          const whichOutput = execSync('which python3', { 
+            encoding: 'utf-8',
+            stdio: 'pipe'
+          }).trim();
+          
+          if (whichOutput) {
+            try {
+              await execFileAsync(whichOutput, ['--version'], { timeout: 5000 });
+              pythonCmd = whichOutput;
+              console.log(`Found Python via 'which python3': ${whichOutput}`);
+            } catch (e) {
+              // Continue
+            }
+          }
+        } catch (e) {
+          // 'which' command failed
+        }
       }
-      console.log(`Using Ghostscript: ${gsExe}`);
-    } else {
-      // Non-Windows: try to find 'gs' command
-      try {
-        execSync('gs --version', { stdio: 'pipe' });
-        console.log('Found Ghostscript in system PATH');
-      } catch (e) {
-        throw new Error('Ghostscript not found. Please ensure Ghostscript is installed.');
-      }
+    }
+    
+    // Final check - verify Python is accessible
+    if (!pythonCmd) {
+      throw new Error('Python not found. Please ensure Python 3.8+ is installed and in your PATH. Try running "python3 --version" in your terminal to verify Python is installed.');
+    }
+    
+    // At this point, pythonCmd is guaranteed to be a string (not null)
+    const finalPythonCmd = pythonCmd;
+    
+    // Verify Python works
+    try {
+      const { stdout } = await execFileAsync(finalPythonCmd, ['--version'], { timeout: 5000 });
+      console.log(`Python version: ${stdout.trim()}`);
+    } catch (e) {
+      console.error('Python version check failed:', e);
+      throw new Error(`Python found at "${finalPythonCmd}" but failed to execute. Please verify Python is correctly installed.`);
+    }
+    
+    // Check if PyMuPDF is installed
+    try {
+      const { stdout: importCheck } = await execFileAsync(
+        finalPythonCmd,
+        ['-c', 'import fitz; print("PyMuPDF version:", fitz.version[0])'],
+        { timeout: 5000 }
+      );
+      console.log('PyMuPDF check:', importCheck.trim());
+    } catch (e) {
+      console.error('PyMuPDF import check failed:', e);
+      throw new Error('PyMuPDF is not installed. Please install it with: pip install PyMuPDF (or pip3 install PyMuPDF)');
     }
     
     // Get the form data
@@ -159,71 +196,114 @@ export async function POST(request: NextRequest) {
 
     const originalSize = file.size;
 
-    // Create temporary file path
+    // Create temporary file paths
     const tempDir = os.tmpdir();
     const uniqueId = Date.now() + Math.random().toString(36).substring(7);
     tempInputPath = path.join(tempDir, `input_${uniqueId}.pdf`);
+    tempOutputPath = path.join(tempDir, `output_${uniqueId}.pdf`);
 
     // Read the file and save to temporary location
     const arrayBuffer = await file.arrayBuffer();
     const inputBuffer = Buffer.from(arrayBuffer);
     await fs.promises.writeFile(tempInputPath, inputBuffer);
 
-    // Get Ghostscript executable path
-    const gsExe = (global as any).__gsExecutable || process.env.GS_BIN || process.env.GHOSTSCRIPT || 'gswin64c';
-    
-    if (!gsExe || (!fs.existsSync(gsExe) && !gsExe.includes('gswin'))) {
-      throw new Error('Ghostscript executable not found. Please ensure Ghostscript is installed.');
+    // Get the Python script path
+    const scriptPath = path.join(process.cwd(), 'scripts', 'pdf_compress.py');
+    console.log('Script path:', scriptPath);
+    console.log('Script exists:', fs.existsSync(scriptPath));
+
+    // Check if script exists
+    if (!fs.existsSync(scriptPath)) {
+      console.error(`Compression script not found at: ${scriptPath}`);
+      console.error('Current working directory:', process.cwd());
+      return NextResponse.json(
+        { success: false, error: `Compression script not found at: ${scriptPath}` },
+        { status: 500 }
+      );
     }
 
-    // Create output file path
-    tempOutputPath = path.join(os.tmpdir(), `output_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`);
-
-    // Map compression level to PDFSETTINGS
-    const pdfSettingsMap: Record<string, string> = {
-      low: '/screen',      // 72 dpi, lower quality
-      medium: '/ebook',    // 150 dpi, good balance
-      high: '/printer',    // 300 dpi, higher quality
-    };
-    const pdfSettings = pdfSettingsMap[compressionLevel] || '/ebook';
-
-    // Build Ghostscript command with correct parameters for version 10.06.0+
-    const gsArgs = [
-      '-q',                                    // Quiet mode
-      '-dNOPAUSE',                             // Don't pause between pages
-      '-dBATCH',                               // Exit after processing
-      '-dSAFER',                               // Safer mode
-      '-sDEVICE=pdfwrite',                     // Output device
-      '-dCompatibilityLevel=1.4',              // PDF version
-      `-dPDFSETTINGS=${pdfSettings}`,          // Compression preset
-      '-dEmbedAllFonts=true',                  // Embed all fonts
-      '-dSubsetFonts=true',                    // Subset fonts
-      '-dAutoRotatePages=/None',              // Don't auto-rotate
-      '-dColorImageDownsampleType=/Bicubic',   // Color image downsampling
-      '-dColorImageResolution=150',            // Color image resolution
-      '-dGrayImageDownsampleType=/Bicubic',    // Gray image downsampling
-      '-dGrayImageResolution=150',             // Gray image resolution
-      '-dMonoImageDownsampleType=/Bicubic',    // Mono image downsampling
-      '-dMonoImageResolution=300',             // Mono image resolution
-      `-sOutputFile=${tempOutputPath}`,        // Output file (use = not space)
-      tempInputPath,                           // Input file
-    ];
-
+    // Execute the Python script
+    console.log(`Executing: ${finalPythonCmd} ${scriptPath} ${tempInputPath} ${tempOutputPath} ${compressionLevel}`);
     try {
-      // Execute Ghostscript
-      await execFileAsync(gsExe, gsArgs, {
-        maxBuffer: 50 * 1024 * 1024, // 50MB buffer
-      });
+      const { stdout, stderr } = await execFileAsync(
+        finalPythonCmd,
+        [scriptPath, tempInputPath, tempOutputPath, compressionLevel],
+        {
+          timeout: 300000, // 5 minutes timeout for compression
+          maxBuffer: 50 * 1024 * 1024, // 50MB buffer
+        }
+      );
+
+      console.log('Python script stdout:', stdout);
+      console.log('Python script stderr:', stderr);
+
+      // Check if output file was created first
+      if (!fs.existsSync(tempOutputPath)) {
+        // Check stderr for error messages
+        let errorMsg = 'Compression failed: output file not created';
+        if (stderr && stderr.trim()) {
+          if (stderr.includes('ERROR:')) {
+            errorMsg = stderr.split('ERROR:')[1]?.trim() || errorMsg;
+          } else {
+            errorMsg = stderr.trim();
+          }
+        }
+        console.error('Output file not created. Error:', errorMsg);
+        return NextResponse.json(
+          { success: false, error: errorMsg },
+          { status: 500 }
+        );
+      }
+
+      // Check if output file is empty
+      const outputStats = await fs.promises.stat(tempOutputPath);
+      if (outputStats.size === 0) {
+        console.error('Output file is empty');
+        return NextResponse.json(
+          { success: false, error: 'Compression failed: output file is empty' },
+          { status: 500 }
+        );
+      }
+
+      // Log stderr for debugging (warnings are OK, errors are not)
+      if (stderr && stderr.trim()) {
+        console.error('Compression script stderr:', stderr);
+        // If stderr contains ERROR (not WARNING), it's a real error
+        if (stderr.includes('ERROR:')) {
+          const errorMsg = stderr.split('ERROR:')[1]?.trim() || 'PDF compression failed';
+          console.error('Python script error:', errorMsg);
+          // Even if there's an error in stderr, if file was created, try to use it
+          // But log the warning
+        }
+      }
+
+      // Parse statistics from stdout if available
+      let compressedSize = 0;
+      let compressionRatio = '0';
+      let sizeReduction = '0';
+      
+      try {
+        if (stdout && stdout.trim()) {
+          const stats = JSON.parse(stdout.trim());
+          compressedSize = stats.compressed_size || 0;
+          compressionRatio = stats.compression_ratio?.toFixed(1) || '0';
+          sizeReduction = stats.size_reduction?.toFixed(1) || '0';
+        }
+      } catch (parseError) {
+        // If parsing fails, calculate from file size
+        console.warn('Could not parse compression statistics, calculating from file size');
+      }
+
+      // If stats weren't parsed, calculate from file
+      if (compressedSize === 0) {
+        const compressedPdfBuffer = await fs.promises.readFile(tempOutputPath);
+        compressedSize = compressedPdfBuffer.length;
+        compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+        sizeReduction = ((originalSize - compressedSize) / 1024).toFixed(1);
+      }
 
       // Read the compressed PDF
       const compressedPdfBuffer = await fs.promises.readFile(tempOutputPath);
-    const compressedSize = compressedPdfBuffer.length;
-
-    // Calculate compression statistics
-    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
-    const sizeReduction = ((originalSize - compressedSize) / 1024).toFixed(1);
-
-    // Convert to Uint8Array for NextResponse
       const uint8Array = new Uint8Array(compressedPdfBuffer);
 
       // Clean up output file
@@ -235,19 +315,19 @@ export async function POST(request: NextRequest) {
         console.error('Error cleaning up output file:', cleanupError);
       }
 
-    // Return the compressed PDF
-    return new NextResponse(uint8Array, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_compressed.pdf"`,
-        'X-Original-Size': originalSize.toString(),
-        'X-Compressed-Size': compressedSize.toString(),
-        'X-Compression-Ratio': compressionRatio,
-        'X-Size-Reduction': sizeReduction,
-      },
-    });
-    } catch (gsError: any) {
+      // Return the compressed PDF
+      return new NextResponse(uint8Array, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${file.name.replace('.pdf', '')}_compressed.pdf"`,
+          'X-Original-Size': originalSize.toString(),
+          'X-Compressed-Size': compressedSize.toString(),
+          'X-Compression-Ratio': compressionRatio,
+          'X-Size-Reduction': sizeReduction,
+        },
+      });
+    } catch (pythonError: any) {
       // Clean up output file if it exists
       try {
         if (tempOutputPath && fs.existsSync(tempOutputPath)) {
@@ -256,24 +336,89 @@ export async function POST(request: NextRequest) {
       } catch (cleanupError) {
         // Ignore cleanup errors
       }
-      throw gsError;
+      
+      // Log detailed error information
+      console.error('Python script execution error:', {
+        message: pythonError.message,
+        code: pythonError.code,
+        signal: pythonError.signal,
+        stdout: pythonError.stdout,
+        stderr: pythonError.stderr,
+        stack: pythonError.stack,
+      });
+      
+      // Extract error message from stderr if available
+      let errorMessage = pythonError.message || 'Failed to compress PDF';
+      
+      if (pythonError.stderr) {
+        const stderrStr = pythonError.stderr.toString();
+        if (stderrStr.includes('ERROR:')) {
+          errorMessage = stderrStr.split('ERROR:')[1]?.trim() || errorMessage;
+        } else if (stderrStr.trim()) {
+          errorMessage = stderrStr.trim();
+        }
+      }
+      
+      // Check for specific error types
+      if (pythonError.code === 'ENOENT') {
+        errorMessage = 'Python executable not found. Please ensure Python is installed and in your PATH.';
+      } else if (pythonError.code === 1) {
+        // Python script exited with error code 1
+        errorMessage = errorMessage || 'PDF compression failed. Check if PyMuPDF is installed: pip install PyMuPDF';
+      } else if (pythonError.signal) {
+        errorMessage = `Python process was terminated (signal: ${pythonError.signal}). The file might be too large or the process timed out.`;
+      }
+      
+      throw new Error(errorMessage);
     }
   } catch (error: any) {
     console.error('PDF compression error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
     
-    // Provide helpful error message if Ghostscript is not installed
+    // Provide helpful error message if Python is not installed
     const errorMessage = error.message?.toLowerCase() || '';
     const errorString = error.toString().toLowerCase();
+    const errorCode = error.code?.toLowerCase() || '';
     
-    if (errorMessage.includes('ghostscript') || 
-        errorMessage.includes('gs') || 
+    // Check for Python-related errors
+    if (errorMessage.includes('python') || 
         errorMessage.includes('not found') ||
-        errorString.includes('ghostscript') ||
-        errorString.includes('gs')) {
+        errorMessage.includes('enoent') ||
+        errorString.includes('python') ||
+        errorCode === 'enoent') {
+      
+      // More detailed error message
+      let detailedError = 'Python is not installed or PyMuPDF is missing.\n\n';
+      detailedError += 'Troubleshooting steps:\n';
+      detailedError += '1. Verify Python is installed: Run "python3 --version" in your terminal\n';
+      detailedError += '2. If Python is installed but not found:\n';
+      detailedError += '   - On Windows: Add Python to PATH during installation\n';
+      detailedError += '   - Or use full path to python.exe\n';
+      detailedError += '3. Install PyMuPDF: pip install PyMuPDF (or pip3 install PyMuPDF)\n';
+      detailedError += '4. Restart your Next.js development server\n';
+      detailedError += '\nOriginal error: ' + error.message;
+      
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Ghostscript is not installed. Please install Ghostscript to use PDF compression.\n\nInstallation:\n1. Download from https://www.ghostscript.com/download/gsdnld.html\n2. Run the installer\n3. Restart your development server\n\nAfter installation, restart your Next.js server and try again.' 
+          error: detailedError
+        },
+        { status: 500 }
+      );
+    }
+
+    // Check for PyMuPDF import errors
+    if (errorMessage.includes('pymupdf') || 
+        errorMessage.includes('fitz') ||
+        errorMessage.includes('no module named')) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'PyMuPDF is not installed. Please install it with: pip install PyMuPDF (or pip3 install PyMuPDF)\n\nAfter installation, restart your Next.js server.\n\nOriginal error: ' + error.message
         },
         { status: 500 }
       );

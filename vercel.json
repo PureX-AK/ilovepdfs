@@ -22,9 +22,6 @@
     "app/api/pdf-to-html-server/route.ts": {
       "maxDuration": 60
     }
-  },
-  "env": {
-    "NODE_ENV": "production"
   }
 }
 
