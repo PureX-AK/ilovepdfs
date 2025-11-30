@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Optimize for Vercel serverless
-  experimental: {
-    // Enable server components optimization
-    serverComponentsExternalPackages: ['mongodb'],
-  },
+  // Server external packages (moved from experimental)
+  serverExternalPackages: ['mongodb'],
   
   // Image optimization (if using next/image)
   images: {

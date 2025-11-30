@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCloudArrowUp,
@@ -79,12 +78,12 @@ export default function UnlockPDF() {
       clearInterval(progressInterval);
       setIsProcessing(false);
       setProgress(0);
-      
-      if (error.message && error.message.includes('password')) {
-        updateToError(toastId, 'Incorrect password. Please try again.');
-      } else {
-        updateToError(toastId, 'An error occurred while unlocking the PDF. The file may not be password-protected or the password is incorrect.');
-      }
+
+      const message =
+        (error && typeof error.message === 'string' && error.message.trim()) ||
+        'An error occurred while unlocking the PDF.';
+
+      updateToError(toastId, message);
       console.error('Unlock error:', error);
     }
   };
@@ -93,29 +92,30 @@ export default function UnlockPDF() {
     if (!selectedFile) return;
 
     try {
-      const arrayBuffer = await selectedFile.arrayBuffer();
-      
-      // Try to load PDF with password if provided
-      const loadOptions: any = { data: arrayBuffer };
+      const formData = new FormData();
+      formData.append('file', selectedFile);
       if (password.trim()) {
-        loadOptions.password = password;
+        formData.append('password', password);
       }
-      
-      const pdf = await PDFDocument.load(loadOptions);
-      
-      // Create a new PDF without password protection
-      const newPdf = await PDFDocument.create();
-      const pageIndices = pdf.getPageIndices();
-      const copiedPages = await newPdf.copyPages(pdf, pageIndices);
-      copiedPages.forEach((page) => newPdf.addPage(page));
-      
-      // Save unlocked PDF
-      const pdfBytes = await newPdf.save();
-      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+
+      const response = await fetch('/api/pdf-unlock-server', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unlock PDF');
+      }
+
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = selectedFile.name.replace('.pdf', '') + '_unlocked.pdf';
+
+      // Keep it simple and consistent with other tools
+      const baseName = selectedFile.name.replace('.pdf', '');
+      link.download = `${baseName}_unlocked.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCloudArrowUp,
@@ -104,30 +103,32 @@ export default function ProtectPDF() {
     if (!selectedFile) return;
 
     try {
-      const arrayBuffer = await selectedFile.arrayBuffer();
-      const pdf = await PDFDocument.load(arrayBuffer);
-      
-      // Set password protection
-      // Note: pdf-lib's encryption is limited. For production, consider using a backend service
-      // or a more advanced library that supports proper PDF encryption standards
-      const pdfBytes = await pdf.save({
-        useObjectStreams: false,
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('password', password);
+
+      const response = await fetch('/api/pdf-protect-server', {
+        method: 'POST',
+        body: formData,
       });
-      
-      // Create a blob and download
-      // Note: This is a basic implementation. Full encryption requires additional libraries
-      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to protect PDF');
+      }
+
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = selectedFile.name.replace('.pdf', '') + '_protected.pdf';
+
+      // Keep it simple and consistent with other tools
+      const baseName = selectedFile.name.replace('.pdf', '');
+      link.download = `${baseName}_protected.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
-      // Show warning about encryption limitations
-      console.warn('Note: pdf-lib has limited encryption support. For production use, consider using a backend service with full PDF encryption capabilities.');
       
     } catch (error) {
       console.error('Error protecting PDF:', error);
@@ -230,9 +231,9 @@ export default function ProtectPDF() {
                       className="border border-[var(--color-border-gray)] rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-[var(--color-primary)]"
                     />
                   </div>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Note:</strong> This is a basic implementation. For production use with full encryption support, consider using a backend service.
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Your PDF will be encrypted with AES-256 encryption for maximum security. Make sure to remember your password as it cannot be recovered.
                     </p>
                   </div>
                 </div>

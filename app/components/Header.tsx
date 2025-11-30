@@ -39,12 +39,16 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-[60]">
-      <nav className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
+    <header className="bg-white shadow-sm sticky top-0 z-[60] overflow-hidden h-[70px]">
+      <nav className="container mx-auto px-6 h-full flex items-center">
+        <div className="flex items-center justify-between w-full">
           <Link href="/" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
-            <Image src="/logo.jpeg" alt="pagalPDF Logo" width={60} height={60} className="object-contain" />
-            <span className="text-xl font-bold text-[var(--color-text-dark)]">pagalPDF</span>
+            <div className="w-[50px] h-[50px] flex-shrink-0 flex items-center justify-center">
+              <Image src="/logo.png" alt="pagalPDF Logo" width={50} height={50} className="object-contain w-full h-full" unoptimized priority />
+            </div>
+            <span className="font-bold text-2xl tracking-tight text-gray-900 whitespace-nowrap">
+              pagal<span className="text-[var(--color-primary)]">pdf</span>
+            </span>
           </Link>
           
           {/* Desktop Navigation */}
@@ -52,14 +56,14 @@ export default function Header() {
             <Link href="/" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
               All Tools
             </Link>
-            <Link href="/features" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
-              Features
+            <Link href="/merge" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
+              Merge PDF
             </Link>
-            <Link href="/pricing" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
-              Pricing
+            <Link href="/split" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
+              Split PDF
             </Link>
-            <Link href="/test" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
-              Test Suite
+            <Link href="/organize-pdf" className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors">
+              Organize PDF
             </Link>
           </div>
 
@@ -106,12 +110,12 @@ export default function Header() {
           <>
             {/* Overlay */}
             <div
-              className="fixed top-[73px] left-0 right-0 bottom-0 bg-black bg-opacity-50 z-40 md:hidden"
+              className="fixed top-[70px] left-0 right-0 bottom-0 bg-black bg-opacity-50 z-40 md:hidden"
               onClick={() => setIsMobileMenuOpen(false)}
             />
             
             {/* Menu Panel */}
-            <div className="fixed top-[73px] left-0 right-0 bottom-0 bg-white z-50 md:hidden overflow-y-auto">
+            <div className="fixed top-[70px] left-0 right-0 bottom-0 bg-white z-50 md:hidden overflow-y-auto">
               <div className="flex flex-col px-6 py-6 space-y-4">
                 {/* Navigation Links */}
                 <Link
@@ -122,25 +126,25 @@ export default function Header() {
                   All Tools
                 </Link>
                 <Link
-                  href="/features"
+                  href="/merge"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg font-medium text-[var(--color-text-dark)] hover:text-[var(--color-primary)] transition-colors py-2 border-b border-[var(--color-border-gray)]"
                 >
-                  Features
+                  Merge PDF
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/split"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg font-medium text-[var(--color-text-dark)] hover:text-[var(--color-primary)] transition-colors py-2 border-b border-[var(--color-border-gray)]"
                 >
-                  Pricing
+                  Split PDF
                 </Link>
                 <Link
-                  href="/test"
+                  href="/organize-pdf"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="text-lg font-medium text-[var(--color-text-dark)] hover:text-[var(--color-primary)] transition-colors py-2 border-b border-[var(--color-border-gray)]"
                 >
-                  Test Suite
+                  Organize PDF
                 </Link>
 
                 {/* Auth Section */}
