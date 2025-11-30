@@ -25,8 +25,8 @@ import {
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: "Features - PDFMaster",
-  description: "Discover all the powerful features of PDFMaster - lightning-fast processing, military-grade security, and professional-quality results.",
+  title: "Features - pagalPDF",
+  description: "Discover all the powerful features of pagalPDF - lightning-fast processing, military-grade security, and professional-quality results.",
 };
 
 export default function FeaturesPage() {
@@ -214,7 +214,7 @@ export default function FeaturesPage() {
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-[var(--color-text-dark)] mb-4">How We Compare</h2>
-              <p className="text-lg text-[var(--color-text-muted)]">See why thousands choose PDFMaster over alternatives</p>
+              <p className="text-lg text-[var(--color-text-muted)]">See why thousands choose pagalPDF over alternatives</p>
             </div>
             <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -222,18 +222,18 @@ export default function FeaturesPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-[var(--color-text-dark)]">Feature</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-[var(--color-primary)]">PDFMaster</th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-[var(--color-primary)]">pagalPDF</th>
                       <th className="px-6 py-4 text-center text-sm font-semibold text-[var(--color-text-muted)]">Competitor A</th>
                       <th className="px-6 py-4 text-center text-sm font-semibold text-[var(--color-text-muted)]">Competitor B</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border-gray)]">
                     {[
-                      { feature: 'Processing Speed', pdfmaster: true, compA: 'partial', compB: false },
-                      { feature: 'Client-Side Processing', pdfmaster: true, compA: false, compB: false },
-                      { feature: 'Quality Preservation', pdfmaster: true, compA: true, compB: 'partial' },
-                      { feature: 'Batch Processing', pdfmaster: true, compA: 'partial', compB: true },
-                      { feature: 'No File Size Limit', pdfmaster: true, compA: false, compB: 'partial' },
+                      { feature: 'Processing Speed', pagalpdf: true, compA: 'partial', compB: false },
+                      { feature: 'Client-Side Processing', pagalpdf: true, compA: false, compB: false },
+                      { feature: 'Quality Preservation', pagalpdf: true, compA: true, compB: 'partial' },
+                      { feature: 'Batch Processing', pagalpdf: true, compA: 'partial', compB: true },
+                      { feature: 'No File Size Limit', pagalpdf: true, compA: false, compB: 'partial' },
                     ].map((row, idx) => (
                       <tr key={idx} className={idx % 2 === 1 ? 'bg-gray-50' : ''}>
                         <td className="px-6 py-4 text-sm text-[var(--color-text-dark)]">{row.feature}</td>
@@ -273,7 +273,7 @@ export default function FeaturesPage() {
             <div className="max-w-4xl mx-auto text-center">
               <h2 className="text-4xl font-bold text-white mb-6">Ready to Experience the Difference?</h2>
               <p className="text-xl text-blue-100 mb-8">
-                Join thousands of satisfied users who trust PDFMaster for their document needs
+                Join thousands of satisfied users who trust pagalPDF for their document needs
               </p>
               <div className="flex items-center justify-center space-x-4">
                 <Link

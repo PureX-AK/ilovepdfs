@@ -159,8 +159,8 @@ export default function PDFToPowerPoint() {
       const pageCount = pdf.numPages;
       
       // Set presentation properties
-      pptx.author = 'PDFMaster';
-      pptx.company = 'PDFMaster';
+      pptx.author = 'pagalPDF';
+      pptx.company = 'pagalPDF';
       pptx.title = selectedFile.name.replace('.pdf', '');
       
       // Convert each PDF page to a slide

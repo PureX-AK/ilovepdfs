@@ -69,14 +69,14 @@ export default function TermsPage() {
                 <div>
                   <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">1. Acceptance of Terms</h3>
                   <p className="text-[var(--color-text-muted)] leading-relaxed">
-                    By accessing and using PDFMaster services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                    By accessing and using pagalPDF services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">2. Service Description</h3>
                   <p className="text-[var(--color-text-muted)] leading-relaxed mb-4">
-                    PDFMaster provides online PDF processing tools including but not limited to:
+                    pagalPDF provides online PDF processing tools including but not limited to:
                   </p>
                   <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-2 ml-4">
                     <li>PDF merging and splitting</li>
@@ -100,7 +100,7 @@ export default function TermsPage() {
                 <div>
                   <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">4. Limitations of Liability</h3>
                   <p className="text-[var(--color-text-muted)] leading-relaxed">
-                    PDFMaster shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our services. We provide the service "as is" without warranties of any kind.
+                    pagalPDF shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our services. We provide the service "as is" without warranties of any kind.
                   </p>
                 </div>
 
@@ -198,7 +198,7 @@ export default function TermsPage() {
                 <div>
                   <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">7. Contact Us</h3>
                   <p className="text-[var(--color-text-muted)] leading-relaxed">
-                    If you have questions about this Privacy Policy, please contact us at privacy@pdfmaster.com or through our{' '}
+                    If you have questions about this Privacy Policy, please contact us at privacy@pagalpdf.com or through our{' '}
                     <Link href="/contact" className="text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">
                       support page
                     </Link>.

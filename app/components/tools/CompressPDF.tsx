@@ -281,7 +281,7 @@ export default function CompressPDF() {
           {selectedFile && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Compression is processed server-side using Ghostscript for actual PDF compression. This will reduce file size by compressing images and optimizing content. Make sure Ghostscript is installed on your server.
+                <strong>Note:</strong> Compression is processed server-side using PyMuPDF for actual PDF compression. This will reduce file size by compressing images and optimizing content.
               </p>
             </div>
           )}

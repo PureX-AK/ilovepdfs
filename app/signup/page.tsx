@@ -138,7 +138,7 @@ export default function SignupPage() {
                 <FontAwesomeIcon icon={faUserPlus} className="text-2xl" />
               </div>
               <h1 className="text-2xl font-bold text-[var(--color-text-dark)] mb-2">Create Your Account</h1>
-              <p className="text-[var(--color-text-muted)]">Join PDFMaster to access all our premium tools</p>
+              <p className="text-[var(--color-text-muted)]">Join pagalPDF to access all our premium tools</p>
             </div>
 
             {/* Social Signup */}

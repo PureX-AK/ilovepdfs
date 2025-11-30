@@ -59,7 +59,7 @@ export async function sendContactNotification(data: ContactEmailData): Promise<b
   };
 
   const mailOptions = {
-    from: `"PDFMaster Contact Form" <${process.env.SMTP_USER}>`,
+    from: `"pagalPDF Contact Form" <${process.env.SMTP_USER}>`,
     to: adminEmail,
     subject: `New Contact Form Submission: ${data.subject}`,
     html: `
@@ -117,7 +117,7 @@ export async function sendContactNotification(data: ContactEmailData): Promise<b
               </div>
               
               <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
-                <p>This email was sent from the PDFMaster contact form.</p>
+                <p>This email was sent from the pagalPDF contact form.</p>
                 <p>You can reply directly to this email to respond to ${data.firstName}.</p>
               </div>
             </div>
@@ -137,7 +137,7 @@ Message:
 ${data.message}
 
 ---
-This email was sent from the PDFMaster contact form.
+This email was sent from the pagalPDF contact form.
     `,
     replyTo: data.email, // Allow replying directly to the user
   };
@@ -160,9 +160,9 @@ export async function sendAutoReply(data: { email: string; firstName: string }):
   }
 
   const mailOptions = {
-    from: `"PDFMaster Support" <${process.env.SMTP_USER}>`,
+    from: `"pagalPDF Support" <${process.env.SMTP_USER}>`,
     to: data.email,
-    subject: 'Thank you for contacting PDFMaster',
+    subject: 'Thank you for contacting pagalPDF',
     html: `
       <!DOCTYPE html>
       <html>
@@ -182,11 +182,11 @@ export async function sendAutoReply(data: { email: string; firstName: string }):
             <div class="content">
               <p>Hi ${data.firstName},</p>
               
-              <p>Thank you for reaching out to PDFMaster. We've received your message and our team will get back to you within 24 hours.</p>
+              <p>Thank you for reaching out to pagalPDF. We've received your message and our team will get back to you within 24 hours.</p>
               
               <p>In the meantime, feel free to explore our PDF tools and features.</p>
               
-              <p>Best regards,<br>The PDFMaster Team</p>
+              <p>Best regards,<br>The pagalPDF Team</p>
             </div>
           </div>
         </body>
@@ -195,12 +195,12 @@ export async function sendAutoReply(data: { email: string; firstName: string }):
     text: `
 Hi ${data.firstName},
 
-Thank you for reaching out to PDFMaster. We've received your message and our team will get back to you within 24 hours.
+Thank you for reaching out to pagalPDF. We've received your message and our team will get back to you within 24 hours.
 
 In the meantime, feel free to explore our PDF tools and features.
 
 Best regards,
-The PDFMaster Team
+The pagalPDF Team
     `,
   };
 

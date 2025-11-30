@@ -219,7 +219,7 @@ export default function PricingPage() {
             <div className="bg-[var(--color-primary)] rounded-2xl p-12 text-center text-white">
               <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
               <p className="text-lg mb-8 opacity-90">
-                Join thousands of users who trust PDFMaster for their document needs
+                Join thousands of users who trust pagalPDF for their document needs
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button className="bg-white text-[var(--color-primary)] px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">

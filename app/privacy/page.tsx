@@ -218,7 +218,7 @@ export default function PrivacyPage() {
                   <div className="flex flex-col md:flex-row md:space-x-8 space-y-2 md:space-y-0">
                     <div className="flex items-center">
                       <FontAwesomeIcon icon={faEnvelope} className="text-[var(--color-primary)] mr-2" />
-                      <span className="text-[var(--color-text-dark)]">privacy@pdfmaster.com</span>
+                      <span className="text-[var(--color-text-dark)]">privacy@pagalpdf.com</span>
                     </div>
                     <div className="flex items-center">
                       <FontAwesomeIcon icon={faEnvelope} className="text-[var(--color-primary)] mr-2" />
@@ -246,7 +246,7 @@ export default function PrivacyPage() {
                     <FontAwesomeIcon icon={faFileContract} className="text-yellow-600 text-xl mt-1" />
                     <div>
                       <h3 className="font-semibold text-yellow-900 mb-2">Agreement to Terms</h3>
-                      <p className="text-yellow-800">By using PDFMaster, you agree to be bound by these Terms of Service and all applicable laws and regulations.</p>
+                      <p className="text-yellow-800">By using pagalPDF, you agree to be bound by these Terms of Service and all applicable laws and regulations.</p>
                     </div>
                   </div>
                 </div>
@@ -256,7 +256,7 @@ export default function PrivacyPage() {
                 <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">1. Acceptance of Terms</h3>
                 <div className="bg-white border border-[var(--color-border-gray)] rounded-lg p-6">
                   <p className="text-[var(--color-text-muted)] leading-relaxed">
-                    By accessing and using PDFMaster services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                    By accessing and using pagalPDF services, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
                   </p>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function PrivacyPage() {
               <div className="mb-10">
                 <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">2. Service Description</h3>
                 <div className="bg-white border border-[var(--color-border-gray)] rounded-lg p-6">
-                  <p className="text-[var(--color-text-muted)] mb-4">PDFMaster provides online PDF processing tools including but not limited to:</p>
+                  <p className="text-[var(--color-text-muted)] mb-4">pagalPDF provides online PDF processing tools including but not limited to:</p>
                   <ul className="list-disc list-inside text-[var(--color-text-muted)] space-y-2 ml-4">
                     <li>PDF merging and splitting</li>
                     <li>PDF compression and optimization</li>
@@ -293,7 +293,7 @@ export default function PrivacyPage() {
                 <h3 className="text-xl font-semibold text-[var(--color-text-dark)] mb-4">4. Limitations of Liability</h3>
                 <div className="bg-white border border-[var(--color-border-gray)] rounded-lg p-6">
                   <p className="text-[var(--color-text-muted)] leading-relaxed">
-                    PDFMaster shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our services. We provide the service "as is" without warranties of any kind.
+                    pagalPDF shall not be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our services. We provide the service "as is" without warranties of any kind.
                   </p>
                 </div>
               </div>

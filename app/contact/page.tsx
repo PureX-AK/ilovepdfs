@@ -134,7 +134,7 @@ export default function ContactPage() {
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-[var(--color-text-dark)] mb-4">Get in Touch</h1>
             <p className="text-lg text-[var(--color-text-muted)] max-w-2xl mx-auto">
-              Have questions about our PDF tools? Need help with a specific feature? We're here to help you get the most out of PDFMaster.
+              Have questions about our PDF tools? Need help with a specific feature? We're here to help you get the most out of pagalPDF.
             </p>
           </div>
         </section>
@@ -156,7 +156,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-[var(--color-text-dark)] mb-1">Email</h4>
-                          <p className="text-[var(--color-text-muted)]">support@pdfmaster.com</p>
+                          <p className="text-[var(--color-text-muted)]">support@pagalpdf.com</p>
                           <p className="text-sm text-[var(--color-text-muted)]">We typically respond within 24 hours</p>
                         </div>
                       </div>

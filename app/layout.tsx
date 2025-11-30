@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PDFMaster - The All-in-One PDF Solution",
+  title: "pagalPDF - The All-in-One PDF Solution",
   description: "Easily merge, split, compress, and convert your PDF files. Everything you need to be more productive with your documents, all in one place.",
 };
 

@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: Promise<{ tool: str
   }
 
   return {
-    title: `${tool.pageTitle} - PDFMaster`,
+    title: `${tool.pageTitle} - pagalPDF`,
     description: tool.pageDescription,
   };
 }

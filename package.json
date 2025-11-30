@@ -22,7 +22,6 @@
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
     "@fortawesome/react-fontawesome": "^3.1.0",
     "bcryptjs": "^3.0.3",
-    "compress-pdf": "^0.5.5",
     "docx": "^9.5.1",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",

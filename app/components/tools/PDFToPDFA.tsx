@@ -101,8 +101,8 @@ export default function PDFToPDFA() {
       // Set PDF/A metadata (basic implementation)
       // Note: Full PDF/A compliance requires more advanced processing
       pdfA.setTitle(selectedFile.name.replace('.pdf', ''));
-      pdfA.setProducer('PDFMaster - PDF/A Converter');
-      pdfA.setCreator('PDFMaster');
+      pdfA.setProducer('pagalPDF - PDF/A Converter');
+      pdfA.setCreator('pagalPDF');
       
       // Save with optimization
       const pdfBytes = await pdfA.save({

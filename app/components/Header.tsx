@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileInvoice, faUser, faSignOutAlt, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faSignOutAlt, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { showSuccess } from '../lib/utils';
@@ -42,8 +43,8 @@ export default function Header() {
       <nav className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
-            <FontAwesomeIcon icon={faFileInvoice} className="text-[var(--color-primary)] text-2xl" />
-            <span className="text-xl font-bold text-[var(--color-text-dark)]">PDFMaster</span>
+            <Image src="/logo.jpeg" alt="pagalPDF Logo" width={60} height={60} className="object-contain" />
+            <span className="text-xl font-bold text-[var(--color-text-dark)]">pagalPDF</span>
           </Link>
           
           {/* Desktop Navigation */}
