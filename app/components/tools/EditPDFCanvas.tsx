@@ -431,8 +431,12 @@ export default function EditPDFCanvas() {
             }
           }
 
+          // pdf-lib's standard fonts (WinAnsi) cannot encode some special characters (e.g. box-drawing chars).
+          // To avoid save errors like "WinAnsi cannot encode", strip non-ASCII characters before drawing.
+          const safeText = (element.text || '').replace(/[^\x20-\x7E]/g, '');
+
           // Draw the editable text on top of the canvas
-          page.drawText(element.text, {
+          page.drawText(safeText, {
             x: pdfX,
             y: pdfY,
             size: pdfFontSize,
