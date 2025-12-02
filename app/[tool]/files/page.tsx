@@ -34,6 +34,7 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [splitMode, setSplitMode] = useState<'all' | 'range' | 'custom'>('all');
   const [pageRange, setPageRange] = useState('');
+  const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
 
   useEffect(() => {
     (async () => {
@@ -48,7 +49,7 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
   // Redirect tools that don't use the shared files page back to their main page
   useEffect(() => {
     if (!toolId) return;
-    if (toolId !== 'merge' && toolId !== 'split') {
+    if (toolId !== 'merge' && toolId !== 'split' && toolId !== 'compress') {
       router.push(`/${toolId}`);
     }
   }, [toolId, router]);
@@ -61,7 +62,7 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
     }
   }, [toolId, files.length, router]);
 
-  if (!toolId || !files.length || (toolId !== 'merge' && toolId !== 'split')) {
+  if (!toolId || !files.length || (toolId !== 'merge' && toolId !== 'split' && toolId !== 'compress')) {
     return null;
   }
 
@@ -110,6 +111,73 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
   const handleDragEnd = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
+  };
+
+  const handleCompress = async () => {
+    const selectedFile = files[0];
+
+    if (!selectedFile) {
+      showError('Please select a PDF file to compress.');
+      return;
+    }
+
+    const toastId = showLoading('Compressing PDF file...');
+    setIsProcessing(true);
+    setProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 200);
+
+    try {
+      const { blob, filename, fileCount, ratio, reduction } = await createCompressedResult(
+        selectedFile,
+        compressionLevel
+      );
+      const url = URL.createObjectURL(blob);
+
+      saveDownloadResult(toolId, {
+        url,
+        filename,
+        fileCount,
+      });
+
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProgress(0);
+
+        if (ratio > 0) {
+          updateToSuccess(
+            toastId,
+            `PDF compressed successfully! Reduced by ${ratio}% (${reduction} KB saved).`
+          );
+        } else if (ratio < 0) {
+          updateToError(
+            toastId,
+            'PDF size increased. This PDF may already be optimized. Consider using a different compression level.'
+          );
+        } else {
+          updateToSuccess(
+            toastId,
+            'PDF processed successfully! File size unchanged - PDF may already be optimized.'
+          );
+        }
+
+        router.push('/compress/download');
+      }, 500);
+    } catch (error) {
+      clearInterval(progressInterval);
+      setIsProcessing(false);
+      setProgress(0);
+      updateToError(toastId, 'An error occurred while compressing the PDF file. Please try again.');
+    }
   };
 
   const handleSplit = async () => {
@@ -427,6 +495,208 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
     );
   }
 
+  // COMPRESS TOOL VIEW
+  if (toolId === 'compress') {
+    const selectedFile = files[0];
+
+    return (
+      <div className="flex flex-col min-h-screen bg-[var(--color-secondary)] text-[var(--color-text-dark)]">
+        <Header />
+
+        {/* Breadcrumb */}
+        <section className="bg-white border-b border-[var(--color-border-gray)]">
+          <div className="container mx-auto px-6 py-3">
+            <div className="flex items-center text-sm text-[var(--color-text-muted)]">
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="hover:text-[var(--color-primary)] transition-colors"
+              >
+                Home
+              </button>
+              <FontAwesomeIcon icon={faChevronRight} className="mx-2 text-xs" />
+              {tool && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/${toolId}`)}
+                    className="hover:text-[var(--color-primary)] transition-colors"
+                  >
+                    {tool.title}
+                  </button>
+                  <FontAwesomeIcon icon={faChevronRight} className="mx-2 text-xs" />
+                </>
+              )}
+              <span className="text-[var(--color-text-dark)] font-medium">Uploaded File</span>
+            </div>
+          </div>
+        </section>
+
+        <main className="flex-grow">
+          {/* Header section */}
+          <section className="py-8 bg-white border-b border-[var(--color-border-gray)]">
+            <div className="container mx-auto px-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/compress')}
+                    className="text-[var(--color-text-muted)] hover:text-[var(--color-primary)] transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faArrowLeft} className="text-xl" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-[var(--color-text-dark)]">Your Uploaded File</h1>
+                    <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                      Choose how strongly you want to compress your PDF
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/compress')}
+                    className="border border-[var(--color-border-gray)] text-[var(--color-text-dark)] px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Choose Another File
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="py-8">
+            <div className="container mx-auto px-6">
+              {/* Selected file summary */}
+              <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] mb-8">
+                <div className="p-6 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FontAwesomeIcon icon={faFilePdf} className="text-red-500 text-xl" />
+                    <div>
+                      <p className="font-medium text-[var(--color-text-dark)] truncate max-w-xs md:max-w-md">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-sm text-[var(--color-text-muted)]">
+                        {formatFileSize(selectedFile.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/compress')}
+                    className="text-[var(--color-danger)] hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Change File
+                  </button>
+                </div>
+              </div>
+
+              {/* Compression options */}
+              <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] mb-8">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-[var(--color-text-dark)] mb-4">
+                    Compression Options
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-[var(--color-text-dark)] block mb-2">
+                        Compression level
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="compression"
+                            value="low"
+                            checked={compressionLevel === 'low'}
+                            onChange={(e) => setCompressionLevel(e.target.value as 'low')}
+                            className="text-[var(--color-primary)]"
+                          />
+                          <span className="text-sm text-[var(--color-text-dark)]">
+                            Low (Better quality, larger file size)
+                          </span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="compression"
+                            value="medium"
+                            checked={compressionLevel === 'medium'}
+                            onChange={(e) => setCompressionLevel(e.target.value as 'medium')}
+                            className="text-[var(--color-primary)]"
+                          />
+                          <span className="text-sm text-[var(--color-text-dark)]">
+                            Medium (Balanced quality and file size)
+                          </span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="compression"
+                            value="high"
+                            checked={compressionLevel === 'high'}
+                            onChange={(e) => setCompressionLevel(e.target.value as 'high')}
+                            className="text-[var(--color-primary)]"
+                          />
+                          <span className="text-sm text-[var(--color-text-dark)]">
+                            High (Smaller file size, slightly lower quality)
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Compression is processed server-side using PyMuPDF for actual PDF
+                  compression. This will reduce file size by compressing images and optimizing content.
+                </p>
+              </div>
+
+              {/* Compress button */}
+              <div className="text-center mb-8">
+                <button
+                  type="button"
+                  onClick={handleCompress}
+                  disabled={isProcessing}
+                  className="bg-[var(--color-primary)] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[var(--color-primary-hover)] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Compress PDF File
+                </button>
+                <p className="text-sm text-[var(--color-text-muted)] mt-4">
+                  Processing typically takes a few seconds
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              {isProcessing && (
+                <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] p-6 mb-8">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-[var(--color-text-dark)]">
+                      Compressing file...
+                    </span>
+                    <span className="text-sm text-[var(--color-text-muted)]">{progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-[var(--color-primary)] h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </main>
+
+        <Footer />
+      </div>
+    );
+  }
+
   // SPLIT TOOL VIEW
   if (toolId === 'split') {
     const selectedFile = files[0];
@@ -675,6 +945,56 @@ async function createMergedBlob(files: File[], outputFilename: string): Promise<
     return { blob, filename };
   } catch (error) {
     console.error('Error merging PDFs:', error);
+    throw error;
+  }
+}
+
+async function createCompressedResult(
+  selectedFile: File,
+  compressionLevel: 'low' | 'medium' | 'high'
+): Promise<{
+  blob: Blob;
+  filename: string;
+  fileCount: number;
+  ratio: number;
+  reduction: string;
+  originalSize: number;
+  finalSize: number;
+}> {
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('compressionLevel', compressionLevel);
+
+    const response = await fetch('/api/compress-pdf', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to compress PDF' }));
+      throw new Error(errorData.error || 'Failed to compress PDF');
+    }
+
+    const originalSize = parseInt(response.headers.get('X-Original-Size') || '0', 10);
+    const compressedSize = parseInt(response.headers.get('X-Compressed-Size') || '0', 10);
+    const compressionRatio = parseFloat(response.headers.get('X-Compression-Ratio') || '0');
+    const sizeReduction = response.headers.get('X-Size-Reduction') || '0';
+
+    const blob = await response.blob();
+    const filename = selectedFile.name.replace(/\.pdf$/i, '') + '_compressed.pdf';
+
+    return {
+      blob,
+      filename,
+      fileCount: 1,
+      ratio: compressionRatio,
+      reduction: sizeReduction,
+      originalSize,
+      finalSize: compressedSize,
+    };
+  } catch (error) {
+    console.error('Error compressing PDF:', error);
     throw error;
   }
 }
