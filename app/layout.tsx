@@ -15,8 +15,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "pagalPDF - The All-in-One PDF Solution",
+  title: "pagalpdf - The All-in-One PDF Solution",
   description: "Easily merge, split, compress, and convert your PDF files. Everything you need to be more productive with your documents, all in one place.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({

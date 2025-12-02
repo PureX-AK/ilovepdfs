@@ -50,6 +50,7 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
   }
 
   const tool = toolsConfig[toolId];
+  const isWordTool = toolId === 'pdf-to-word';
 
   const handleDownload = () => {
     if (!downloadUrl || !filename) return;
@@ -112,7 +113,7 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
         {/* Success Header */}
         <section className="py-12 bg-white">
           <div className="container mx-auto px-6 max-w-4xl">
-            <div className="text-center mb-8">
+              <div className="text-center mb-8">
               <div className="relative inline-block mb-6">
                 <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center absolute inset-0 animate-ping opacity-60" />
                 <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center relative">
@@ -138,11 +139,13 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start space-x-4 flex-1">
                   <div className="w-16 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-3xl font-bold">PDF</span>
+                  <span className="text-white text-3xl font-bold">
+                      {isWordTool ? 'DOCX' : 'PDF'}
+                    </span>
                   </div>
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-[var(--color-text-dark)] mb-2 truncate">
-                      {filename || 'output.pdf'}
+                      {filename || (isWordTool ? 'output.docx' : 'output.pdf')}
                     </h2>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)] mb-3">
                       {fileCount !== undefined && (
@@ -153,7 +156,7 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
                       )}
                       <div className="flex items-center space-x-2">
                         <FontAwesomeIcon icon={faFileLines} />
-                        <span>PDF document</span>
+                      <span>{isWordTool ? 'Word document (DOCX)' : 'PDF document'}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <FontAwesomeIcon icon={faHardDrive} />
@@ -182,7 +185,9 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
                     {isDownloading
                       ? 'Downloading...'
                       : downloadUrl
-                      ? 'Download PDF'
+                      ? isWordTool
+                        ? 'Download Word file'
+                        : 'Download PDF'
                       : 'No file available'}
                   </span>
                 </button>

@@ -33,11 +33,11 @@ def convert_pdf_to_docx(pdf_path: str, docx_path: str) -> bool:
         
         # Create converter instance
         cv = Converter(pdf_path)
-        
+
         # Convert PDF to DOCX
-        # This preserves tables, images, and formatting better than text extraction
-        cv.convert(docx_path, start=0, end=None)
-        
+        # Use layout_mode="exact" for better preservation of complex layouts/tables
+        cv.convert(docx_path, start=0, end=None, layout_mode="exact")
+
         # Close the converter
         cv.close()
         

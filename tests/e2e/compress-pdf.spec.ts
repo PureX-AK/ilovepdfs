@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { waitForProcessing, verifyPDFFile, getFileSize } from './helpers';
+import {
+  uploadFile,
+  waitForProcessing,
+  verifyPDFFile,
+  getFileSize,
+} from './helpers';
 import { PDFDocument } from 'pdf-lib';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -42,29 +47,23 @@ test.describe('Compress PDF E2E Tests', () => {
       });
     }
 
-    // Click compress / continue button on files/options page
+    // Set up download listener
+    const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+
+    // Click compress button
     const compressButton = page.locator('button:has-text("Compress"), button:has-text("Download")').first();
     await compressButton.click();
 
-    // Wait for processing and redirect to download page
     await waitForProcessing(page);
-    await page.waitForURL('**/compress/download', { timeout: 30000 });
 
-    // Trigger download from the dedicated download page
-    const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-    const downloadButton = page.locator('button:has-text("Download")').first();
-    await downloadButton.click();
-
-    const downloadPath = path.join(
-      __dirname,
-      '../downloads',
-      (await downloadPromise).suggestedFilename()
-    );
+    // Wait for download
+    const download = await downloadPromise;
+    const downloadPath = path.join(__dirname, '../downloads', download.suggestedFilename());
     const downloadDir = path.dirname(downloadPath);
     if (!fs.existsSync(downloadDir)) {
       fs.mkdirSync(downloadDir, { recursive: true });
     }
-    await (await downloadPromise).saveAs(downloadPath);
+    await download.saveAs(downloadPath);
 
     // Verify downloaded file
     expect(fs.existsSync(downloadPath)).toBe(true);

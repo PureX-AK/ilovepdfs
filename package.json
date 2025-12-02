@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 8080",
+    "dev": "next dev -p 8081",
     "build": "next build",
-    "start": "next start -p 8080",
+    "start": "next start -p 8081",
     "lint": "eslint",
     "test:visual": "playwright test tests/visual",
     "test:visual:ui": "playwright test tests/visual --ui",
@@ -37,8 +37,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-pdf": "^10.2.0",
-    "jszip": "^3.10.1"
+    "react-pdf": "^10.2.0"
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^4.0.0",
