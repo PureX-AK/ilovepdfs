@@ -123,8 +123,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
 
     const toastId = showLoading(
       mode === 'editable'
-        ? 'Converting PDF to editable Word (server-side)...'
-        : 'Converting PDF to layout-perfect Word (pages as images)...'
+        ? 'Converting PDF to editable Word...'
+        : 'Converting PDF to layout-perfect Word...'
     );
     setIsProcessing(true);
     setProgress(0);
@@ -189,6 +189,69 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
     }
   };
 
+  const handlePdfToPowerPointConvert = async () => {
+    if (!files.length) return;
+
+    const file = files[0];
+
+    const toastId = showLoading('Converting PDF to PowerPoint...');
+    setIsProcessing(true);
+    setProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 200);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/pdf-to-pptx-server', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'PDF to PowerPoint conversion failed');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const baseName = file.name.replace(/\.pdf$/i, '');
+      const filename = `${baseName}.pptx`;
+
+      saveDownloadResult('pdf-to-ppt', {
+        url,
+        filename,
+        fileCount: 1,
+      });
+
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProgress(0);
+        updateToSuccess(toastId, 'PDF converted to PowerPoint successfully!');
+        router.push('/pdf-to-ppt/download');
+      }, 500);
+    } catch (error) {
+      clearInterval(progressInterval);
+      setIsProcessing(false);
+      setProgress(0);
+      console.error('PDF to PowerPoint conversion error:', error);
+      updateToError(
+        toastId,
+        'An error occurred while converting the PDF to PowerPoint. Please try again.'
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-secondary)] text-[var(--color-text-dark)]">
       <Header />
@@ -241,6 +304,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                       ? 'Your Uploaded Files'
                       : toolId === 'pdf-to-word'
                       ? 'PDF to Word – Options'
+                      : toolId === 'pdf-to-ppt'
+                      ? 'PDF to PowerPoint – Options'
                       : 'Your Uploaded File'}
                   </h1>
                   <p className="text-sm text-[var(--color-text-muted)] mt-1">
@@ -248,6 +313,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                       ? 'Arrange files in the order you want to merge them'
                       : toolId === 'pdf-to-word'
                       ? 'Review your file and choose how you want the Word document created'
+                      : toolId === 'pdf-to-ppt'
+                      ? 'Review your file and start the PowerPoint conversion'
                       : 'Review your uploaded file and adjust options before processing'}
                   </p>
                 </div>
@@ -283,10 +350,12 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-semibold text-[var(--color-text-dark)]">
-                      Your Uploaded Files
+                      {toolId === 'merge' ? 'Your Uploaded Files' : 'Your Uploaded File'}
                     </h3>
                     <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                      Select and arrange files in the order you want to merge them
+                      {toolId === 'merge'
+                        ? 'Select and arrange files in the order you want to merge them'
+                        : 'Review the PDF that will be processed.'}
                     </p>
                   </div>
                   <span className="text-sm text-[var(--color-text-muted)]">
@@ -493,11 +562,31 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
               </>
             )}
 
+            {toolId === 'pdf-to-ppt' && (
+              <div className="text-center mb-8">
+                <button
+                  type="button"
+                  onClick={handlePdfToPowerPointConvert}
+                  disabled={isProcessing || !files.length}
+                  className="bg-[var(--color-primary)] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[var(--color-primary-hover)] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Convert PDF to PowerPoint
+                </button>
+                <p className="text-sm text-[var(--color-text-muted)] mt-4">
+                  Processing typically takes a few seconds.
+                </p>
+              </div>
+            )}
+
             {isProcessing && (
               <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] p-6 mb-8">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--color-text-dark)]">
-                    {toolId === 'pdf-to-word' ? 'Converting PDF to Word...' : 'Merging files...'}
+                    {toolId === 'pdf-to-word'
+                      ? 'Converting PDF to Word...'
+                      : toolId === 'pdf-to-ppt'
+                      ? 'Converting PDF to PowerPoint...'
+                      : 'Merging files...'}
                   </span>
                   <span className="text-sm text-[var(--color-text-muted)]">{progress}%</span>
                 </div>

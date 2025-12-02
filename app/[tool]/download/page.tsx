@@ -51,6 +51,7 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
 
   const tool = toolsConfig[toolId];
   const isWordTool = toolId === 'pdf-to-word';
+  const isPptTool = toolId === 'pdf-to-ppt';
 
   const handleDownload = () => {
     if (!downloadUrl || !filename) return;
@@ -139,13 +140,13 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start space-x-4 flex-1">
                   <div className="w-16 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-3xl font-bold">
-                      {isWordTool ? 'DOCX' : 'PDF'}
+                    <span className="text-white text-3xl font-bold">
+                      {isWordTool ? 'DOCX' : isPptTool ? 'PPTX' : 'PDF'}
                     </span>
                   </div>
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-[var(--color-text-dark)] mb-2 truncate">
-                      {filename || (isWordTool ? 'output.docx' : 'output.pdf')}
+                      {filename || (isWordTool ? 'output.docx' : isPptTool ? 'output.pptx' : 'output.pdf')}
                     </h2>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)] mb-3">
                       {fileCount !== undefined && (
@@ -156,7 +157,13 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
                       )}
                       <div className="flex items-center space-x-2">
                         <FontAwesomeIcon icon={faFileLines} />
-                      <span>{isWordTool ? 'Word document (DOCX)' : 'PDF document'}</span>
+                        <span>
+                          {isWordTool
+                            ? 'Word document (DOCX)'
+                            : isPptTool
+                            ? 'PowerPoint presentation (PPTX)'
+                            : 'PDF document'}
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <FontAwesomeIcon icon={faHardDrive} />
@@ -187,6 +194,8 @@ export default function ToolDownloadPage({ params }: ToolDownloadPageProps) {
                       : downloadUrl
                       ? isWordTool
                         ? 'Download Word file'
+                        : isPptTool
+                        ? 'Download PowerPoint file'
                         : 'Download PDF'
                       : 'No file available'}
                   </span>
