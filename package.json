@@ -37,7 +37,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-pdf": "^10.2.0"
+    "react-pdf": "^10.2.0",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^4.0.0",
