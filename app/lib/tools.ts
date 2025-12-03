@@ -162,6 +162,17 @@ export const toolsConfig: Record<string, ToolConfig> = {
     pageDescription: 'Find and replace text in PDF documents. Replace specific text occurrences while maintaining formatting.',
     isNew: true,
   },
+  'cover-replace-pdf': {
+    id: 'cover-replace-pdf',
+    title: 'Cover & Replace Text',
+    description: 'Draw white rectangles over existing text and type new text on top, then save as a new PDF.',
+    icon: faFileLines,
+    iconBgColor: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    pageTitle: 'Cover & Replace Text in PDF',
+    pageDescription: 'Visually hide old content with white boxes and place your own text on top, then download the edited PDF.',
+    isNew: true,
+  },
   'pdf-to-jpg': {
     id: 'pdf-to-jpg',
     title: 'PDF to JPG',
