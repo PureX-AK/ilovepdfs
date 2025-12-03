@@ -313,71 +313,77 @@ def convert_pdf_to_excel(pdf_path: str, excel_path: str) -> bool:
         # Create Excel workbook
         wb = Workbook()
         wb.remove(wb.active)
-        
-        # Process each page (for now, treat all as one page)
-        # In future, we can detect page breaks from HTML
+
+        # Single-sheet for now (can be extended to multiple pages later)
         ws = wb.create_sheet(title="Page_1")
-        
-        # Detect columns
+
+        # Detect columns from absolute X positions (geometry-based grid)
         if lines:
-            # Estimate page width from max X position
             max_x = max(item['x'] for line in lines for item in line['items'])
-            page_width = max_x + 100  # Add margin
+            page_width = max_x + 100  # margin
             columns = detect_columns(lines, page_width)
             print(f"  Detected {len(columns)} column(s)", file=sys.stderr)
         else:
             columns = []
-        
-        # Set reasonable column widths
-        max_cols = min(len(columns) + 1, 20)
-        for col in range(1, max_cols + 1):
-            ws.column_dimensions[get_column_letter(col)].width = 30
-        
+
         current_row = 1
-        
-        # Write text to Excel
+
+        # Write text to Excel using geometric column mapping
         for line in lines:
-            # Group items by column
             items_by_col = defaultdict(list)
-            
+
             for item in line['items']:
                 col_idx = get_column_index(item['x'], columns)
                 items_by_col[col_idx].append(item)
-            
-            # Write items to their respective columns
+
             for col_idx, items in sorted(items_by_col.items()):
-                # Combine text in this column
-                combined_text = ' '.join([item['text'] for item in items])
-                
-                # Get formatting from first item (or combine)
+                combined_text = " ".join(it["text"] for it in items)
                 first_item = items[0]
-                font_size = first_item['font_size']
-                is_bold = any(item['bold'] for item in items)
-                is_italic = any(item['italic'] for item in items)
-                
-                # Write to Excel
+                font_size = first_item["font_size"]
+                is_bold = any(it["bold"] for it in items)
+                is_italic = any(it["italic"] for it in items)
+
                 cell = ws.cell(row=current_row, column=col_idx)
                 if cell.value:
-                    cell.value = str(cell.value) + ' ' + combined_text
+                    cell.value = f"{cell.value} {combined_text}"
                 else:
                     cell.value = combined_text
-                
-                # Apply formatting
+
                 cell.font = Font(
                     size=int(font_size),
                     bold=is_bold,
-                    italic=is_italic
+                    italic=is_italic,
                 )
                 cell.alignment = Alignment(
-                    vertical='top',
-                    horizontal='left',
-                    wrap_text=True
+                    vertical="top",
+                    horizontal="left",
+                    wrap_text=True,
                 )
-            
-            # Set row height
+
             ws.row_dimensions[current_row].height = 20
             current_row += 1
-        
+
+        # Auto-size columns based on content length (approximate visual fit)
+        for column_cells in ws.columns:
+            max_length = 0
+            column_letter = get_column_letter(column_cells[0].column)
+
+            for cell in column_cells:
+                try:
+                    if cell.value is not None:
+                        text = str(cell.value)
+                        max_length = max(max_length, len(text))
+                except Exception:
+                    continue
+
+            if max_length == 0:
+                ws.column_dimensions[column_letter].width = 2
+            else:
+                # Padding and sensible bounds
+                width = max_length + 2
+                width = max(8, min(width, 60))
+                ws.column_dimensions[column_letter].width = width
+
         # Save workbook
         wb.save(excel_path)
         

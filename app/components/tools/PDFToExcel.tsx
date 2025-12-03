@@ -106,15 +106,14 @@ export default function PDFToExcel() {
     if (!selectedFile) return;
 
     try {
-      // Convert PDF to HTML first, then parse HTML to Excel
-      // Step 1: Convert PDF to HTML
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+      // Convert PDF to HTML first, then parse HTML to Excel on the client
+      const formData = new FormData();
+      formData.append('file', selectedFile);
 
       const htmlResponse = await fetch('/api/pdf-to-html-server', {
-          method: 'POST',
-          body: formData,
-        });
+        method: 'POST',
+        body: formData,
+      });
 
       if (!htmlResponse.ok) {
         const errorData = await htmlResponse.json().catch(() => ({}));
@@ -123,9 +122,14 @@ export default function PDFToExcel() {
 
       const htmlContent = await htmlResponse.text();
 
-      // Step 2: Parse HTML and convert to Excel
+      // Step 2: Parse HTML and convert to Excel (client-side)
       const ExcelJS = await loadExcelJs();
       const workbook = new ExcelJS.Workbook();
+
+      // Ensure we don't keep any default sheet that ExcelJS might add
+      if (workbook.worksheets && workbook.worksheets.length === 1 && workbook.worksheets[0].name === 'Sheet1') {
+        workbook.removeWorksheet(workbook.worksheets[0].id);
+      }
 
       // Parse HTML using DOMParser
       const parser = new DOMParser();
@@ -603,20 +607,26 @@ export default function PDFToExcel() {
       const processPage = (pageElement: Element, worksheet: any, pageNumber: number) => {
         let currentRow = 1;
         let maxColumn = 1;
+        const positionedRows = new Set<number>(); // rows that come from positioned (non-table) content
         
         // Step 1: Collect and process absolutely positioned elements within this page
         const positionedElements = collectPositionedElements(pageElement);
         
         if (positionedElements.length > 0) {
-          // Group elements by top value (same row) with tolerance
-          const tolerance = 10; // pixels tolerance for same row
+          // Group elements by vertical position (same visual line) with tolerance
+          // We first bucket Y positions to reduce tiny differences, then apply a tolerance.
+          const tolerance = 12; // pixels tolerance for same row (slightly relaxed)
+          const rowBucketSize = 5; // bucket height in pixels for normalizing "top" values
           const groupedByRow = new Map<number, Array<{ element: Element; top: number; left: number }>>();
           
           positionedElements.forEach(item => {
+            // Normalize top value into a bucket so small baseline differences stay on same row
+            const normalizedTop = Math.round(item.top / rowBucketSize) * rowBucketSize;
+            
             // Find existing row group within tolerance
             let matchedRow: number | null = null;
             for (const [rowTop] of groupedByRow) {
-              if (Math.abs(item.top - rowTop) <= tolerance) {
+              if (Math.abs(normalizedTop - rowTop) <= tolerance) {
                 matchedRow = rowTop;
                 break;
               }
@@ -625,7 +635,7 @@ export default function PDFToExcel() {
             if (matchedRow !== null) {
               groupedByRow.get(matchedRow)!.push(item);
             } else {
-              groupedByRow.set(item.top, [item]);
+              groupedByRow.set(normalizedTop, [item]);
             }
           });
           
@@ -698,6 +708,46 @@ export default function PDFToExcel() {
               applyFormatting(cell, item.element);
               maxColumn = Math.max(maxColumn, matchedCol);
             });
+
+            // Decide if this visual line looks like a "table row":
+            // if it has 3 or more distinct columns, keep them separate.
+            const usedCols = Array.from(columnsUsed).sort((a, b) => a - b);
+            const isTableLikeRow = usedCols.length >= 3;
+
+            // If this visual line ended up in multiple columns but does NOT
+            // look like a table row, merge those cells into a single wide cell
+            // so the entire line appears as one row in Excel.
+            if (!isTableLikeRow && usedCols.length > 1) {
+              const firstCol = usedCols[0];
+              const lastCol = usedCols[usedCols.length - 1];
+
+              // Concatenate text from all used columns in left-to-right order
+              let mergedText = '';
+              usedCols.forEach((colIndex) => {
+                const c = worksheet.getCell(currentRow, colIndex);
+                const v = c.value !== null && c.value !== undefined ? String(c.value).trim() : '';
+                if (v) {
+                  mergedText += (mergedText ? ' ' : '') + v;
+                }
+              });
+
+              try {
+                if (mergedText) {
+                  // Set value on the first cell and merge across the row
+                  const startCell = worksheet.getCell(currentRow, firstCol);
+                  startCell.value = mergedText;
+                  worksheet.mergeCells(currentRow, firstCol, currentRow, lastCol);
+                }
+              } catch (mergeErr) {
+                console.warn('Row merge failed for positioned line:', mergeErr);
+              }
+            }
+
+            // Mark this row as coming from positioned content (for later
+            // empty-column merge) ONLY if it's not table-like.
+            if (!isTableLikeRow) {
+              positionedRows.add(currentRow);
+            }
             
             currentRow++;
           });
@@ -721,6 +771,12 @@ export default function PDFToExcel() {
         
         // Process each row to merge empty columns between content
         for (let row = 1; row <= currentRow; row++) {
+          // IMPORTANT: only adjust rows that came from positioned (non-table) content.
+          // Rows created from real <table> structures should retain their separate columns.
+          if (!positionedRows.has(row)) {
+            continue;
+          }
+
           // Find which columns have content in this row
           const rowContentColumns: number[] = [];
           for (let col = 1; col <= maxColumn; col++) {
@@ -849,65 +905,26 @@ export default function PDFToExcel() {
         }
         
         console.log(`[FINAL MERGE] Merge process completed`);
-        
-        // Step 4: Auto-size columns based on content width (only for rows with multiple columns)
-        // First, identify rows that have multiple content columns
-        const rowsWithMultipleColumns = new Set<number>();
-        for (let row = 1; row <= currentRow; row++) {
-          const rowContentCols: number[] = [];
-          for (let col = 1; col <= maxColumn; col++) {
-            try {
-              const cell = worksheet.getCell(row, col);
-              if (cell.value !== null && cell.value !== undefined && String(cell.value).trim() !== '') {
-                if (!rowContentCols.includes(col)) {
-                  rowContentCols.push(col);
-                }
+
+        // Step 4: Auto-size every content column based purely on cell text length
+        // so that column width closely matches the content.
+        worksheet.columns.forEach((column: any) => {
+          let maxLength = 0;
+          column.eachCell({ includeEmpty: false }, (cell: any) => {
+            if (cell.value !== null && cell.value !== undefined) {
+              const cellText = cell.value.toString();
+              if (cellText.length > maxLength) {
+                maxLength = cellText.length;
               }
-            } catch (e) {
-              // Skip
             }
-          }
-          if (rowContentCols.length > 1) {
-            rowsWithMultipleColumns.add(row);
-          }
-        }
-        
-        // Auto-size columns based on content width (only for columns in rows with multiple columns)
-        // First, identify which columns appear in multi-column rows
-        const columnsInMultiColumnRows = new Set<number>();
-        for (const row of rowsWithMultipleColumns) {
-          for (let col = 1; col <= maxColumn; col++) {
-            try {
-              const cell = worksheet.getCell(row, col);
-              if (cell.value !== null && cell.value !== undefined && String(cell.value).trim() !== '') {
-                columnsInMultiColumnRows.add(col);
-              }
-            } catch (e) {
-              // Skip
-            }
-          }
-        }
-        
-        // Use the provided auto-sizing logic for columns in multi-column rows
-        worksheet.columns.forEach(function (column: any, i: number) {
-          const colNumber = i + 1; // Excel columns are 1-indexed
-          
-          if (columnsInMultiColumnRows.has(colNumber)) {
-            // Column appears in multi-column row - auto-size based on content
-            let maxLength = 0;
-            column.eachCell({ includeEmpty: true }, function (cell: any) {
-              const columnLength = cell.value ? cell.value.toString().length : 10;
-              if (columnLength > maxLength) {
-                maxLength = columnLength;
-              }
-            });
-            column.width = maxLength < 10 ? 10 : maxLength;
-          } else if (columnsWithContent.has(colNumber)) {
-            // Content column but not in multi-column rows - use default width
-            column.width = 15;
+          });
+
+          // Add small padding and clamp to a reasonable range
+          const padded = maxLength + 2;
+          if (maxLength === 0) {
+            column.width = 2; // almost empty column
           } else {
-            // Empty column - make it very narrow
-            column.width = 2;
+            column.width = Math.min(Math.max(padded, 10), 60);
           }
         });
       };

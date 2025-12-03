@@ -30,6 +30,7 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
   const [toolId, setToolId] = useState<string | null>(null);
   const [outputFilename, setOutputFilename] = useState('merged-document');
   const [pdfToWordMode, setPdfToWordMode] = useState<'editable' | 'image'>('editable');
+  const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -252,6 +253,93 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
     }
   };
 
+  const handleCompress = async () => {
+    if (!files.length) return;
+
+    const file = files[0];
+
+    const toastId = showLoading('Compressing PDF file...');
+    setIsProcessing(true);
+    setProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 200);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('compressionLevel', compressionLevel);
+
+      const response = await fetch('/api/compress-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to compress PDF' }));
+        throw new Error(errorData.error || 'Failed to compress PDF');
+      }
+
+      const originalSize = parseInt(response.headers.get('X-Original-Size') || '0');
+      const compressedSize = parseInt(response.headers.get('X-Compressed-Size') || '0');
+      const compressionRatio = parseFloat(response.headers.get('X-Compression-Ratio') || '0');
+      const sizeReduction = response.headers.get('X-Size-Reduction') || '0';
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const baseName = file.name.replace(/\.pdf$/i, '');
+      const filename = `${baseName}_compressed.pdf`;
+
+      saveDownloadResult('compress', {
+        url,
+        filename,
+        fileCount: 1,
+        createdAt: new Date().toISOString(),
+      });
+
+      setProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProgress(0);
+
+        if (compressionRatio > 0) {
+          updateToSuccess(
+            toastId,
+            `PDF compressed successfully! Reduced by ${compressionRatio}% (${sizeReduction} KB saved).`
+          );
+        } else if (compressionRatio < 0) {
+          updateToError(
+            toastId,
+            'PDF size increased. This PDF may already be optimized. Try a different compression level.'
+          );
+        } else {
+          updateToSuccess(
+            toastId,
+            'PDF processed successfully, but file size is unchanged. It may already be optimized.'
+          );
+        }
+
+        router.push('/compress/download');
+      }, 500);
+    } catch (error) {
+      clearInterval(progressInterval);
+      setIsProcessing(false);
+      setProgress(0);
+      console.error('PDF compression error:', error);
+      updateToError(
+        toastId,
+        'An error occurred while compressing the PDF. Please try again.'
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-secondary)] text-[var(--color-text-dark)]">
       <Header />
@@ -306,6 +394,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                       ? 'PDF to Word – Options'
                       : toolId === 'pdf-to-ppt'
                       ? 'PDF to PowerPoint – Options'
+                      : toolId === 'compress'
+                      ? 'Compress PDF – Options'
                       : 'Your Uploaded File'}
                   </h1>
                   <p className="text-sm text-[var(--color-text-muted)] mt-1">
@@ -315,6 +405,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                       ? 'Review your file and choose how you want the Word document created'
                       : toolId === 'pdf-to-ppt'
                       ? 'Review your file and start the PowerPoint conversion'
+                      : toolId === 'compress'
+                      ? 'Review your file and choose how strongly you want it compressed'
                       : 'Review your uploaded file and adjust options before processing'}
                   </p>
                 </div>
@@ -578,6 +670,80 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
               </div>
             )}
 
+            {toolId === 'compress' && (
+              <>
+                <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] mb-8">
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold text-[var(--color-text-dark)] mb-4">
+                      Compression Options
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium text-[var(--color-text-dark)] block mb-2">
+                          Compression level
+                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="compression"
+                              value="low"
+                              checked={compressionLevel === 'low'}
+                              onChange={(e) => setCompressionLevel(e.target.value as 'low')}
+                              className="text-[var(--color-primary)]"
+                            />
+                            <span className="text-sm text-[var(--color-text-dark)]">
+                              Low (Better quality, larger file size)
+                            </span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="compression"
+                              value="medium"
+                              checked={compressionLevel === 'medium'}
+                              onChange={(e) => setCompressionLevel(e.target.value as 'medium')}
+                              className="text-[var(--color-primary)]"
+                            />
+                            <span className="text-sm text-[var(--color-text-dark)]">
+                              Medium (Balanced quality and file size)
+                            </span>
+                          </label>
+                          <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="compression"
+                              value="high"
+                              checked={compressionLevel === 'high'}
+                              onChange={(e) => setCompressionLevel(e.target.value as 'high')}
+                              className="text-[var(--color-primary)]"
+                            />
+                            <span className="text-sm text-[var(--color-text-dark)]">
+                              High (Smaller file size, slightly lower quality)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center mb-8">
+                  <button
+                    type="button"
+                    onClick={handleCompress}
+                    disabled={isProcessing || !files.length}
+                    className="bg-[var(--color-primary)] text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-[var(--color-primary-hover)] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Compress PDF File
+                  </button>
+                  <p className="text-sm text-[var(--color-text-muted)] mt-4">
+                    Processing typically takes a few seconds.
+                  </p>
+                </div>
+              </>
+            )}
+
             {isProcessing && (
               <div className="bg-white rounded-xl shadow-sm border border-[var(--color-border-gray)] p-6 mb-8">
                 <div className="flex items-center justify-between mb-2">
@@ -586,6 +752,8 @@ export default function ToolFilesPage({ params }: ToolFilesPageProps) {
                       ? 'Converting PDF to Word...'
                       : toolId === 'pdf-to-ppt'
                       ? 'Converting PDF to PowerPoint...'
+                      : toolId === 'compress'
+                      ? 'Compressing file...'
                       : 'Merging files...'}
                   </span>
                   <span className="text-sm text-[var(--color-text-muted)]">{progress}%</span>

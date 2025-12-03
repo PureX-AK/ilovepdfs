@@ -10,7 +10,6 @@ const execFileAsync = promisify(execFile);
 export async function POST(request: NextRequest) {
   let tempInputPath: string | null = null;
   let tempOutputPath: string | null = null;
-  let tempHtmlPath: string | null = null;
 
   try {
     // Get the form data
@@ -46,7 +45,6 @@ export async function POST(request: NextRequest) {
     const uniqueId = Date.now() + Math.random().toString(36).substring(7);
     tempInputPath = path.join(tempDir, `input_${uniqueId}.pdf`);
     tempOutputPath = path.join(tempDir, `output_${uniqueId}.xlsx`);
-    tempHtmlPath = path.join(tempDir, `intermediate_${uniqueId}.html`);
 
     // Read the file and save to temporary location
     const arrayBuffer = await file.arrayBuffer();
@@ -102,56 +100,48 @@ export async function POST(request: NextRequest) {
       throw new Error('Python not found. Please ensure Python 3.8+ is installed and in your PATH.');
     }
 
-    // Step 1: Convert PDF to HTML
-    const pdfToHtmlScript = path.join(process.cwd(), 'scripts', 'pdf_to_html.py');
-    
-    if (!fs.existsSync(pdfToHtmlScript)) {
-      throw new Error('PDF to HTML conversion script not found. Please ensure scripts/pdf_to_html.py exists.');
+    // Path to the PDF → Excel Python script
+    const pdfToExcelScript = path.join(process.cwd(), 'scripts', 'pdf_to_excel.py');
+
+    if (!fs.existsSync(pdfToExcelScript)) {
+      throw new Error('PDF to Excel conversion script not found. Please ensure scripts/pdf_to_excel.py exists.');
     }
 
     try {
-      console.log('Step 1: Converting PDF to HTML...');
-      const { stdout: htmlStdout, stderr: htmlStderr } = await execFileAsync(
+      console.log('Converting PDF to Excel using Python script...');
+      const { stdout, stderr } = await execFileAsync(
         pythonCmd,
-        [pdfToHtmlScript, tempInputPath, tempHtmlPath],
+        [pdfToExcelScript, tempInputPath, tempOutputPath],
         {
           maxBuffer: 50 * 1024 * 1024, // 50MB buffer
-          timeout: 120000, // 2 minute timeout
+          timeout: 300000, // up to 5 minutes for complex PDFs
         }
       );
-      
-      if (htmlStderr) {
-        console.log('PDF to HTML stderr:', htmlStderr);
+
+      if (stdout) {
+        console.log('pdf_to_excel stdout:', stdout);
       }
-    } catch (htmlError: any) {
-      const errorOutput = (htmlError.stderr || htmlError.stdout || '').toString();
+      if (stderr) {
+        console.log('pdf_to_excel stderr:', stderr);
+      }
+    } catch (execError: any) {
+      const errorOutput = (execError.stderr || execError.stdout || '').toString();
       if (errorOutput.includes('PyMuPDF') || errorOutput.includes('fitz')) {
-        throw new Error(
-          'PyMuPDF library not installed. Please install it with: pip install PyMuPDF'
-        );
+        throw new Error('PyMuPDF library not installed. Please install it with: pip install PyMuPDF');
       }
-      throw new Error(`PDF to HTML conversion failed: ${htmlError.message || 'Unknown error'}`);
+      if (errorOutput.includes('openpyxl')) {
+        throw new Error('openpyxl library not installed. Please install it with: pip install openpyxl');
+      }
+      throw new Error(`PDF to Excel conversion failed: ${execError.message || 'Unknown error'}`);
     }
 
-    // Check if HTML file was created
-    if (!fs.existsSync(tempHtmlPath)) {
-      throw new Error('PDF to HTML conversion completed but HTML file was not created.');
-    }
-
-    // Server-side conversion is disabled - using client-side HTML parsing instead
-    throw new Error('Server-side conversion disabled. Using client-side conversion.');
-
-    // Check if output file was created (unreachable code, but kept for type safety)
-    if (!tempOutputPath) {
-      throw new Error('Output path not set.');
-    }
-    const outputPath = tempOutputPath as string;
-    if (!fs.existsSync(outputPath)) {
-      throw new Error('Conversion completed but output file was not created.');
+    // Ensure output file exists
+    if (!tempOutputPath || !fs.existsSync(tempOutputPath)) {
+      throw new Error('Conversion completed but output Excel file was not created.');
     }
 
     // Read the converted Excel file
-    const excelBuffer = await fs.promises.readFile(outputPath);
+    const excelBuffer = await fs.promises.readFile(tempOutputPath);
 
     // Return the Excel file
     return new NextResponse(excelBuffer, {
@@ -167,7 +157,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message || 'Failed to convert PDF to Excel. Using client-side conversion instead.' 
+        error: error.message || 'Failed to convert PDF to Excel.' 
       },
       { status: 500 }
     );
@@ -176,9 +166,6 @@ export async function POST(request: NextRequest) {
     try {
       if (tempInputPath && fs.existsSync(tempInputPath)) {
         await fs.promises.unlink(tempInputPath);
-      }
-      if (tempHtmlPath && fs.existsSync(tempHtmlPath)) {
-        await fs.promises.unlink(tempHtmlPath);
       }
       if (tempOutputPath && fs.existsSync(tempOutputPath)) {
         await fs.promises.unlink(tempOutputPath);
